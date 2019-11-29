@@ -1,0 +1,14 @@
+Scrie "Introduceti n: "
+Citeste n (Intreg)
+
+a <- Intreg[n]
+
+Pentru i <- 0, n - 1 executa
+  Citeste a[i] (Intreg)
+Sf
+
+Scrie "Sirul este..."
+
+Pentru i <- n - 1, 0, -1 executa
+  Scrie a[i]
+Sf

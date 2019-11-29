@@ -1,0 +1,10 @@
+Scrie "Introduceti n: "
+Citeste n (Intreg)
+
+fact <- 1
+
+Pentru i <- 2, n executa // Daca n <= 2, n! = 1 = i
+  fact <- fact * i
+Sf
+
+Scrie fact

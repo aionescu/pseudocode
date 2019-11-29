@@ -1,0 +1,13 @@
+Scrie "Introduceti n: "
+Citeste n (Intreg)
+
+a <- 1
+b <- 1
+
+Pentru i <- 3, n executa
+  c <- b
+  b <- a + b
+  a <- c
+Sf
+
+Scrie b

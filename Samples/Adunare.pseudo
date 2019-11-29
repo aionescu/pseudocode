@@ -1,0 +1,6 @@
+Scrie "Introduceti numerele: "
+
+Citeste a (Intreg)
+Citeste b (Intreg)
+
+Scrie a + b
