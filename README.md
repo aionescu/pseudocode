@@ -1,12 +1,14 @@
-# Pseudoi
+# pseudo
 
-An interpreter for romanian pseudocode that I wrote for my programming certificate at the end of high school.
+Romanian pseudocode interpreter
 
-## Building from source
+## Building and running
 
-In order to build the project for a specific platform, run `dotnet build -r <platform>` in the repository's directory, where `<platform>` is either `win-x64`, `win-x86`, `linux-x64`, or `osx-x64`.
+You will need the .NET Core SDK, which can be found [here](https://dotnet.microsoft.com/download).
 
-You will need the .NET Core SDK v3.0 or newer, which you can download [here](https://dotnet.microsoft.com/download).
+To build, run `dotnet build` in the repo's root directory.
+
+To run the project, run `dotnet run <file>` (e.g. `dotnet run Samples/Adunare.pseudo`). Running will also build the project.
 
 ## License
 
