@@ -1,10 +1,10 @@
-﻿module Pseudoi.Parser
+﻿module Language.Pseudocode.Parser
 
 open System
 open FParsec
 open FParsec.Pipes
 
-open Pseudoi.Ast
+open Language.Pseudocode.AST
 
 type Parser<'a> = Parser<'a, unit>
 

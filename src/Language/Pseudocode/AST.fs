@@ -1,4 +1,4 @@
-﻿namespace Pseudoi.Ast
+﻿namespace Language.Pseudocode.AST
 
 type Lit =
   | NumLit of float

@@ -1,11 +1,11 @@
-﻿module Pseudoi.Program
+﻿module Language.Pseudocode.Main
 
 open System.IO
 open FParsec
 open Microsoft.CodeAnalysis.CSharp.Scripting
 
-open Pseudoi.Codegen
-open Pseudoi.Parser
+open Language.Pseudocode.Parser
+open Language.Pseudocode.Codegen
 
 [<EntryPoint>]
 let main argv =
@@ -14,10 +14,10 @@ let main argv =
       true, argv.[1]
     elif argv.Length < 1 then
       printfn "Eroare: Niciun fisier sursa nu a fost specificat."
-      exit ()
+      exit 1
     elif argv.Length > 1 then
       printfn "Eroare: Prea multe fisiere au fost specificate."
-      exit ()
+      exit 1
     else
       false, argv.[0]
 

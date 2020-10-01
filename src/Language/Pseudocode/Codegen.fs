@@ -1,14 +1,14 @@
-﻿module Pseudoi.Codegen
+﻿module Language.Pseudocode.Codegen
 
 open System
 open System.Collections.Generic
 
-open Pseudoi.Ast
+open Language.Pseudocode.AST
 
 let inline ($) f a = f a
 
-let exit () =
-  Environment.Exit 0
+let exit code =
+  Environment.Exit code
   Unchecked.defaultof<_>
 
 let btwn s1 s2 s = s1 + s + s2
@@ -46,7 +46,7 @@ and compileExpr = function
 
 let errorUndeclaredVar v =
   printfn "Eroare: Variabila \"%s\" nu a fost declarata." v
-  exit ()
+  exit 1
 
 let mutable vars = new HashSet<string>()
 
