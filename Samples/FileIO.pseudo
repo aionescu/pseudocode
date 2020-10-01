@@ -1,14 +1,16 @@
+{# using System.IO; #}
+
 input <- "Input.txt"
 output <- "Output.txt"
 
-fileText <- System.IO.File.ReadAllLines(input)
+fileText <- {# File.ReadAllLines(input) #}
 
-a <- int.Parse(fileText[0])
-b <- int.Parse(fileText[1])
+a <- {# int.Parse(filetext[0]) #}
+b <- {# int.Parse(filetext[1]) #}
 
-max <- Math.Max(a, b)
+max <- {# Math.Max(a, b) #}
 
-Scrie "Maximul este ", max
-System.IO.File.WriteAllText(output, max.ToString())
+Scrie "Maximul este", max
+{# File.WriteAllText(output, max.ToString()); #}
 
-Scrie System.IO.File.ReadAllText(output)
+Scrie {# File.ReadAllText(output) #}

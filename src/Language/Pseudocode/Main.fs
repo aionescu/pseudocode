@@ -21,16 +21,20 @@ let main argv =
     else
       false, argv.[0]
 
-  let code = File.ReadAllText file
-  
+  let code =
+    try File.ReadAllText file
+    with e ->
+      printfn "Eroare: %s" e.Message
+      exit 1
+      
   let parseResult = run programEof code
 
   if debug then
     printfn "[Debug.ParserResult]\n%A\n" parseResult
 
   let success, code =
-    match run programEof code with
-    | Success (code, _, _) -> true, compileProgram code
+    match parseResult with
+    | Success (code, _, _) -> true, compileProgram true file code
     | _ -> false, "Eroare: Sintaxa incorecta."
 
   if success then

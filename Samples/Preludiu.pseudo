@@ -1,0 +1,44 @@
+{#
+using System.IO;
+
+var __consoleIn = Console.In;
+var __consoleOut = Console.Out;
+TextReader __currentInFile = null;
+TextWriter __currentOutFile = null;
+
+void deschidefisierintrare(string s) {
+  if (__currentInFile != null)
+    __currentInFile.Close();
+
+  __currentInFile = new StreamReader(s);
+  Console.SetIn(__currentInFile);
+}
+
+void deschidefisieriesire(string s) {
+  if (__currentOutFile != null)
+    __currentOutFile.Close();
+
+  __currentOutFile = new StreamWriter(s);
+  Console.SetOut(__currentOutFile);
+}
+
+void inchidefisierintrare() {
+  if (__currentInFile != null) {
+    __currentInFile.Close();
+    __currentInFile = null;
+    Console.SetIn(__consoleIn);
+  }
+}
+
+void inchidefisieriesire() {
+  if (__currentOutFile != null) {
+    __currentOutFile.Close();
+    __currentOutFile = null;
+    Console.SetOut(__consoleOut);
+  }
+}
+#}
+
+{# int lungime<T>(T[] a) { #}
+  returneaza {# a.Length #}
+sf

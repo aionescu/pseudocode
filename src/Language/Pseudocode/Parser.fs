@@ -41,13 +41,17 @@ let string: Parser<_> =
   between %'"' %'"' (manyChars %[normalChar; escapedChar]) .>> ws
   |>> StringLit
 
+let inlineCSharp: Parser<_> = %%"{#" >>. manyCharsTill anyChar %%"#}"
+let inlineCSharpExpr = inlineCSharp |>> InlineCSharpExpr
+let inlineCSharpStatement = inlineCSharp |>> InlineCSharpStatement
+
 let lit = %[bool; num; string] |>> Lit
 
 let reserved =
   [ "adevarat"; "fals"; "intreg"; "real"; "logic"; "text"; "si"; "sau"
     "citeste"; "scrie"; "cat"; "timp"; "repeta"; "pana"; "cand"
     "executa"; "pentru"; "daca"; "altfel"; "atunci"; "sfarsit"
-    "iesi"; "continua"
+    "iesi"; "continua"; "subalgoritm"; "returneaza"; "importa"
   ]
 
 let eqCi s1 s2 =String.Equals(s1, s2, StringComparison.OrdinalIgnoreCase)
@@ -65,14 +69,14 @@ let newArray = typeName .>>. between %%'[' %%']' expr |>> NewArray
 
 let identRaw: Parser<_> =
   let fstChar c = c = '_' || isLetter c
-  let sndChar c = fstChar c || isDigit c || c = '.'
+  let sndChar c = fstChar c || isDigit c
 
   let ident = many1Satisfy2 fstChar sndChar .>> ws
   ident >>= fun s ->
-    if List.exists (eqCi s) reserved then
+    if List.exists (eqCi s) reserved || s.StartsWith("__") then
       fail "Identificator rezervat"
     else
-      preturn s
+      preturn (s.ToLower())
 
 let ident = identRaw |>> Ident
 
@@ -93,7 +97,7 @@ let parensExpr = between %%'(' %%')' expr
 let opp = OperatorPrecedenceParser<Expr,unit,unit> ()
 
 exprImpl := opp.ExpressionParser
-opp.TermParser <- %[attempt funcCall; attempt newArray; attempt lvalue; lit; parensExpr]
+opp.TermParser <- %[attempt funcCall; attempt newArray; attempt lvalue; attempt inlineCSharpExpr; lit; parensExpr]
 
 opp.AddOperator(PrefixOperator("-", ws, 1, true, fun x -> UnOp ("-", x)))
 opp.AddOperator(PrefixOperator("!", ws, 1, true, fun x -> UnOp ("!", x)))
@@ -148,6 +152,16 @@ let execute = ss"executa" >>% Do
 
 let repeat = ss"repeta" >>% Do
 
+let return' = ss"returneaza" >>. opt expr |>> Return
+
+let arg = identRaw .>> %%':' .>>. typeName
+
+let subalgorithm =
+  ss"subalgoritm" >>. identRaw .>>. between %%'(' %%')' (sepBy arg %%',') .>>. opt (%%':' >>. typeName)
+  |>> fun ((a, b), c) -> Subalgorithm (a, b, c)
+
+let import = ss"importa" >>. identRaw |>> Import
+
 let for' =
   s"pentru" >>. ws1 >>. identRaw .>> %%"<-" .>>. expr .>> %%',' .>>. expr .>>. opt (%%',' >>. expr) .>> ss"executa" |>> (flat4 >> For)
 
@@ -157,7 +171,9 @@ let break' = ss"iesi" >>% Break
 let continue' = ss"continua" >>% Continue
 
 let statement' =
-  [ for'; repeat; execute; until
+  [ inlineCSharpStatement
+    import; subalgorithm; return'
+    for'; repeat; execute; until
     while'; doWhile; elseIf; else'
     if'; write; read; assignment
     funcCallStatement; break'

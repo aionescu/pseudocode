@@ -25,6 +25,7 @@ and Expr =
   | NewArray of TypeName * Expr
   | UnOp of string * Expr
   | BinOp of Expr * string * Expr
+  | InlineCSharpExpr of string
 
 type Statement =
   | FuncCallStatement of FuncCall
@@ -43,5 +44,9 @@ type Statement =
   | Continue
   | End
   | Empty
+  | InlineCSharpStatement of string
+  | Subalgorithm of string * (string * TypeName) list * TypeName option
+  | Return of Expr option
+  | Import of string
 
 type Program = Program of Statement list

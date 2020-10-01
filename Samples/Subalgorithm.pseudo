@@ -1,0 +1,15 @@
+{# int lungime<T>(T[] a) { #}
+  Returneaza {# a.Length #}
+Sf
+
+Subalgoritm f(x: intreg): intreg
+  Returneaza x + 1
+Sf
+
+subalgoritm print(x: intreg)
+  scrie x
+sf
+
+a <- Intreg[20]
+
+print(lungime(a))
