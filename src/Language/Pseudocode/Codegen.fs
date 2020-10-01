@@ -48,6 +48,7 @@ let errorUndeclaredVar v =
   exit 1
 
 let mutable vars = new HashSet<string>()
+let mutable importedFiles = new HashSet<string>()
 
 let readString v = v + " = Console.ReadLine();";
 let readInt v = v + " = int.Parse(Console.ReadLine());";
@@ -114,7 +115,7 @@ and compileImport (file: string) s =
   let enumerationOptions = EnumerationOptions()
   enumerationOptions.MatchCasing <- MatchCasing.CaseInsensitive
 
-  let files = Directory.GetFiles(Path.GetDirectoryName(file), s + ".pseudo", enumerationOptions)
+  let files = Directory.GetFiles(Path.GetDirectoryName(Path.GetFullPath(file)), s + ".pseudo", enumerationOptions)
 
   if files.Length = 0 then
     printfn "Eroare: Modulul '%s' nu a fost gasit." s
@@ -122,7 +123,11 @@ and compileImport (file: string) s =
   else if files.Length > 1 then
     printfn "Eroare: Mai multe fisiere care pot contine modulul '%s' au fost gasite." s
     exit 1
+  else if importedFiles.Contains(s) then
+    ""
   else
+    importedFiles.Add(s) |> ignore
+
     let code = File.ReadAllText files.[0]
     let ast = run Parser.programEof code
 
