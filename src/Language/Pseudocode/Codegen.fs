@@ -241,3 +241,4 @@ and compileStmt file = function
 and compileProgram openSystem file (Program stmts) =
   if openSystem then "using System;\n" else ""
   + String.Join("\n", Seq.map (compileStmt file) stmts)
+  
