@@ -1,3 +1,11 @@
 {# using static System.Math; #}
 
 Scrie {# Abs(-2) #}
+
+subalgoritm toString(o: {# object #}): Text
+  returneaza {# o?.ToString() #}
+sf
+
+scrie toString(2.2)
+scrie toString(adevarat)
+scrie toString({# null #})

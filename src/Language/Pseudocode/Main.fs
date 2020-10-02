@@ -26,11 +26,11 @@ let main argv =
     with e ->
       printfn "Eroare: %s" e.Message
       exit 1
-      
+
   let parseResult = run programEof code
 
   if debug then
-    printfn "[Debug.ParserResult]\n%A\n" parseResult
+    printfn "[Parse Result]\n%A\n" parseResult
 
   let success, code =
     match parseResult with
@@ -42,9 +42,14 @@ let main argv =
     let diagnostics = script.Compile()
 
     if debug then
-      printfn "[Debug.CodegenResult]\n%s\n" code
+      let codeWithLines =
+        code.Split("\n")
+        |> Array.mapi (fun i s -> (i + 1).ToString() + ": " + s)
+        |> String.concat "\n"
 
-      printfn "[Debug.CSharpErrors]\nEmpty? %b\n%A\n" diagnostics.IsEmpty diagnostics
+      printfn "[Codegen Result]\n%s\n" codeWithLines
+
+      printfn "[C# Errors]\nEmpty? %b\n%A\n" diagnostics.IsEmpty <| Seq.toList diagnostics
 
     if diagnostics.IsEmpty then
       script.RunAsync().Wait()

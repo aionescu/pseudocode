@@ -13,3 +13,9 @@ sf
 a <- Intreg[20]
 
 print(lungime(a))
+
+subalgoritm adauga(a: intreg, b: intreg): intreg
+  returneaza a + b
+sf
+
+print(adauga(2, 7))

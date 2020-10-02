@@ -5,11 +5,16 @@ type Lit =
   | BoolLit of bool
   | StringLit of string
 
-type TypeName =
+type PrimType =
   | Int
   | Float
   | Bool
   | String
+
+type TypeName =
+  | Prim of PrimType
+  | Array of PrimType
+  | InlineCSharpType of string
 
 type LValue =
   | Ident of string

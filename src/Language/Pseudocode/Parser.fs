@@ -43,6 +43,7 @@ let string: Parser<_> =
 
 let inlineCSharp: Parser<_> = %%"{#" >>. manyCharsTill anyChar %%"#}"
 let inlineCSharpExpr = inlineCSharp |>> InlineCSharpExpr
+let inlineCSharpType = inlineCSharp |>> InlineCSharpType
 let inlineCSharpStatement = inlineCSharp |>> InlineCSharpStatement
 
 let lit = %[bool; num; string] |>> Lit
@@ -56,16 +57,22 @@ let reserved =
 
 let eqCi s1 s2 =String.Equals(s1, s2, StringComparison.OrdinalIgnoreCase)
 
-let typeName =
+let primTypeRaw =
   %%[ ss"intreg" >>% Int
       ss"real" >>% Float
       ss"logic" >>% Bool
       ss"text" >>% String
   ]
 
+let primType = primTypeRaw |>> Prim 
+
+let arrayType = primTypeRaw .>> %%'[' .>> %%']' |>> Array
+
+let typeName = %[attempt inlineCSharpType; attempt arrayType; primType]
+
 let expr, exprImpl = createParserForwardedToRef<Expr, unit> ()
 
-let newArray = typeName .>>. between %%'[' %%']' expr |>> NewArray
+let newArray = primType .>>. between %%'[' %%']' expr |>> NewArray
 
 let identRaw: Parser<_> =
   let fstChar c = c = '_' || isLetter c

@@ -28,11 +28,16 @@ and compileArgList es = String.Join(", ", Seq.map compileExpr es)
 
 and compileFuncCall (FuncCall (i, es)) = i + paren (compileArgList es)
 
-and compileTn = function
+and compilePrimType = function
   | Int -> "int"
   | Float -> "float"
   | Bool -> "bool"
   | String -> "string"
+
+and compileTn = function
+  | Prim t -> compilePrimType t
+  | Array t -> compilePrimType t + "[]"
+  | InlineCSharpType s -> s.Trim()
 
 and compileExpr = function
   | Lit l -> compileLit l
@@ -47,21 +52,37 @@ let errorUndeclaredVar v =
   printfn "Eroare: Variabila \"%s\" nu a fost declarata." v
   exit 1
 
-let mutable vars = new HashSet<string>()
-let mutable importedFiles = new HashSet<string>()
+let mutable scope = [new HashSet<string>()]
+let importedFiles = new HashSet<string>()
+
+let enterScope () =
+  let scope' = List.head scope
+  scope <- HashSet(scope') :: scope
+
+let exitScope () =
+  if List.length scope > 1 then
+    scope <- List.tail scope
 
 let readString v = v + " = Console.ReadLine();";
 let readInt v = v + " = int.Parse(Console.ReadLine());";
 let readFloat v = v + " = float.Parse(Console.ReadLine());";
 let readBool v = v + " = (int.Parse(Console.ReadLine()) == 0 ? false : true);";
 
-let readType v = function
+let readPrimType v = function
   | Int -> readInt v
   | Float -> readFloat v
   | Bool -> readBool v
   | String -> readString v
 
+let readType v = function
+  | Prim t -> readPrimType v t
+  | _ ->
+      printfn "Eroare: Numai valori de tipuri primitive pot fi citite."
+      exit 1
+
 let rec compileAssignment l e =
+  let vars = List.head scope
+
   match l with
   | Ident i ->
       if vars.Contains(i) then
@@ -76,6 +97,8 @@ let rec compileAssignment l e =
         errorUndeclaredVar i
 
 and compileRead v t =
+  let vars  = List.head scope
+
   match v with
   | Ident i ->
       match vars.Contains(i) with
@@ -95,7 +118,14 @@ and compileFor l e1 e2 e3 =
     | Some e3 -> compileExpr e3
 
   let op = if e3.[0] = '-' then " >= " else " <= "
-  let before = if vars.Contains(l) then "" else "var "
+  let vars = List.head scope
+
+  let before =
+    if vars.Contains(l)
+    then ""
+    else
+      vars.Add(l) |> ignore
+      "var "
 
   "for (" + before + l + " = " + compileExpr e1 + "; " + l + op + compileExpr e2 + "; " + l + " = " + l + " + " + paren e3 + ") {"
 
@@ -108,6 +138,12 @@ and compileSubalgorithm name args ret =
     match ret with 
     | None -> "void"
     | Some ret -> compileTn ret
+
+  let vars = List.head scope
+
+  args
+  |> List.map fst
+  |> List.iter (vars.Add >> ignore)
 
   ret + " " + name + "(" + compileArgs args + ") {"
 
@@ -134,7 +170,7 @@ and compileImport (file: string) s =
     match ast with
     | Success (code, _, _) -> compileProgram false files.[0] code
     | _ ->
-        printfn "Eroare: Sintaxa incorecta."
+        printfn "Eroare: Sintaxa incorecta in modulul '%s'." s
         exit 1
 
 and compileStmt file = function
@@ -142,23 +178,65 @@ and compileStmt file = function
   | Assignment (l, e) -> compileAssignment l e
   | Read (v, tn) -> compileRead v tn
   | Write es -> "Console.WriteLine(String.Join(\" \", " + compileArgList es + "));"
-  | If e -> "if (" + compileExpr e + ") {"
-  | ElseIf e -> "} else if (" + compileExpr e + ") {"
-  | Else -> "} else {"
-  | While e -> "while (" + compileExpr e + ") {"
-  | DoWhile e -> "} while (" + compileExpr e + ");"
-  | Until e -> "} while (!(" + compileExpr e + "));"
-  | Do -> "do {"
-  | For (l, e1, e2, e3) -> compileFor l e1 e2 e3
+
+  | If e ->
+      enterScope ()
+      "if (" + compileExpr e + ") {"
+
+  | ElseIf e ->
+      exitScope ()
+      enterScope ()
+      "} else if (" + compileExpr e + ") {"
+
+  | Else ->
+      exitScope ()
+      enterScope ()
+      "} else {"
+
+  | While e ->
+      enterScope ()
+      "while (" + compileExpr e + ") {"
+
+  | DoWhile e ->
+      exitScope ()
+      "} while (" + compileExpr e + ");"
+
+  | Until e ->
+      exitScope ()
+      "} while (!(" + compileExpr e + "));"
+
+  | Do ->
+      enterScope ()
+      "do {"
+
+  | For (l, e1, e2, e3) ->
+      enterScope ()
+      compileFor l e1 e2 e3
+
   | Break -> "break;"
   | Continue -> "continue;"
-  | End -> "}"
+
+  | End ->
+      exitScope ()
+      "}"
+
   | Empty -> ""
   | InlineCSharpStatement s -> s.Trim()
-  | Subalgorithm (name, args, ret) -> compileSubalgorithm name args ret
-  | Return None -> "return;"
-  | Return (Some e) -> "return " + compileExpr e + ";"
-  | Import s -> compileImport file s
+  
+  | Subalgorithm (name, args, ret) ->
+      enterScope ()
+      compileSubalgorithm name args ret
+
+  | Return None ->
+      exitScope ()
+      "return;"
+
+  | Return (Some e) ->
+      let s = "return " + compileExpr e + ";"
+      exitScope ()
+      s
+
+  | Import s -> compileImport file (s.ToLower())
 
 and compileProgram openSystem file (Program stmts) =
   if openSystem then "using System;\n" else ""

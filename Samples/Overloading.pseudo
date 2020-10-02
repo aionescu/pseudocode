@@ -1,0 +1,7 @@
+importa preludiu
+
+scrie absolut(2)
+scrie absolut(2.2)
+
+scrie lungime(Intreg[20])
+scrie lungime("abc")
