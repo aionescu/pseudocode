@@ -1,4 +1,4 @@
-﻿namespace Language.Pseudocode.AST
+﻿namespace Language.Pseudocode.Syntax
 
 type Lit =
   | NumLit of float

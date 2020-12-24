@@ -5,7 +5,7 @@ open System.Collections.Generic
 open System.IO
 
 open FParsec
-open Language.Pseudocode.AST
+open Language.Pseudocode.Syntax
 
 let exit code =
   Environment.Exit code
@@ -135,7 +135,7 @@ and compileArgs = String.concat "," << List.map compileArg
 
 and compileSubalgorithm name args ret =
   let ret =
-    match ret with 
+    match ret with
     | None -> "void"
     | Some ret -> compileTn ret
 
@@ -222,7 +222,7 @@ and compileStmt file = function
 
   | Empty -> ""
   | InlineCSharpStatement s -> s.Trim()
-  
+
   | Subalgorithm (name, args, ret) ->
       enterScope ()
       compileSubalgorithm name args ret
@@ -241,4 +241,3 @@ and compileStmt file = function
 and compileProgram openSystem file (Program stmts) =
   if openSystem then "using System;\n" else ""
   + String.Join("\n", Seq.map (compileStmt file) stmts)
-  

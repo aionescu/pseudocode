@@ -4,7 +4,7 @@ open System
 open FParsec
 open FParsec.Pipes
 
-open Language.Pseudocode.AST
+open Language.Pseudocode.Syntax
 
 type Parser<'a> = Parser<'a, unit>
 
@@ -64,7 +64,7 @@ let primTypeRaw =
       ss"text" >>% String
   ]
 
-let primType = primTypeRaw |>> Prim 
+let primType = primTypeRaw |>> Prim
 
 let arrayType = primTypeRaw .>> %%'[' .>> %%']' |>> Array
 
