@@ -42,14 +42,19 @@ let main argv =
     let diagnostics = script.Compile()
 
     if debug then
+      let codeLines = code.Split("\n")
+      let maxLineDigitCount = codeLines.Length.ToString().Length
+
       let codeWithLines =
-        code.Split("\n")
-        |> Array.mapi (fun i s -> (i + 1).ToString() + ": " + s)
+        codeLines
+        |> Seq.append [""]
+        |> Seq.mapi (sprintf "%*d: %s" maxLineDigitCount)
+        |> Seq.skip 1
         |> String.concat "\n"
 
       printfn "[Codegen Result]\n%s\n" codeWithLines
 
-      printfn "[C# Errors]\nEmpty? %b\n%A\n" diagnostics.IsEmpty <| Seq.toList diagnostics
+      printfn "[C# Errors]\n%A\n" <| Seq.toList diagnostics
 
     if diagnostics.IsEmpty then
       script.RunAsync().Wait()
