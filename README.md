@@ -1,4 +1,4 @@
-# pseudo
+# pseudoi
 
 Romanian pseudocode interpreter
 
