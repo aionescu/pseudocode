@@ -10,7 +10,7 @@
     <Compile Include="src/Language/Pseudocode/AST.fs"/>
     <Compile Include="src/Language/Pseudocode/Parser.fs"/>
     <Compile Include="src/Language/Pseudocode/Codegen.fs"/>
-    <Compile Include="src/Language/Pseudocode/Main.fs"/>
+    <Compile Include="src/Main.fs"/>
   </ItemGroup>
 
   <ItemGroup>

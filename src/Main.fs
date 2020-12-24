@@ -1,4 +1,4 @@
-﻿module Language.Pseudocode.Main
+﻿module Main
 
 open System.IO
 open FParsec
