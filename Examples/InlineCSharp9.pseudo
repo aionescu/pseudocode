@@ -1,0 +1,4 @@
+{# record Point(int x, int y); #}
+
+a <- {# new Point(2, 3) #}
+Scrie a
