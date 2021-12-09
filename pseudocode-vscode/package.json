@@ -1,0 +1,25 @@
+{
+  "name": "pseudocode-vscode",
+  "displayName": "Pseudocode Syntax Highlighting",
+  "description": "Pseudocode Syntax Highlighting",
+  "version": "0.0.1",
+  "engines": {
+    "vscode": "^1.50.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "contributes": {
+    "languages": [{
+      "id": "psc",
+      "aliases": ["Pseudocode", "psc"],
+      "extensions": [".psc"],
+      "configuration": "./language-configuration.json"
+    }],
+    "grammars": [{
+      "language": "psc",
+      "scopeName": "source.psc",
+      "path": "./syntaxes/psc.tmLanguage.json"
+    }]
+  }
+}

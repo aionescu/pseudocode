@@ -1,0 +1,70 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Pseudocode",
+  "patterns": [
+    { "include": "#keywords" },
+    { "include": "#numbers" },
+    { "include": "#bools" },
+    { "include": "#types" },
+    { "include": "#operators" },
+    { "include": "#comments" },
+    { "include": "#strings" }
+  ],
+  "repository": {
+    "keywords": {
+      "patterns": [{
+        "name": "keyword.control.psc",
+        "match": "\\b(let|end|if|then|else|while|do|for|in|to|and|or|not|read|write)\\b"
+      }]
+    },
+    "numbers": {
+      "patterns": [{
+        "name": "constant.numeric.psc",
+        "match": "\\b-?[0-9]+(\\.[0-9]+)?\\b"
+      }]
+    },
+    "bools": {
+      "patterns": [{
+        "name": "constant.language.psc",
+        "match": "\\b(True|False)\\b"
+      }]
+    },
+    "types": {
+      "patterns": [{
+        "name": "entity.name.type",
+        "match": "\\b(Integer|Real|Text|Boolean)\\b"
+      }]
+    },
+    "operators": {
+      "patterns": [{
+        "name": "keyword.operator.psc",
+        "match": "\\b(and|or)\\b"
+      }]
+    },
+    "comments": {
+      "patterns": [{
+        "name": "comment.double-dash.psc",
+        "match": "--.*$"
+      }, {
+        "name": "comment.block.psc",
+        "begin": "{-",
+        "beginCaptures": { "0": { "name": "punctuation.definition.comment.psc" }},
+        "end": "-}",
+        "endCaptues": { "0": { "name": "punctuation.definition.comment.psc" }},
+        "patterns": [{ "include": "#comments" }]
+      }]
+    },
+    "strings": {
+      "name": "string.quoted.double.psc",
+      "begin": "\"",
+      "end": "\"",
+      "patterns": [
+        {
+          "name": "constant.character.escape.psc",
+          "match": "\\\\."
+        }
+      ]
+    }
+  },
+  "scopeName": "source.psc"
+}
