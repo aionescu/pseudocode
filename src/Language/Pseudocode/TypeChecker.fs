@@ -1,7 +1,7 @@
-module Language.Pseudocode.Typechecker
+module Language.Pseudocode.TypeChecker
 
-open Utils.Misc
-open Utils.Result
+open Utils.Function
+open Utils.Monad.Result
 open Language.Pseudocode.Syntax
 
 let lookupVar i env =
@@ -42,7 +42,7 @@ let rec typeCheckExpr env expr =
       typeCheckExpr env b >>= fun b ->
 
       let numeric a = List.contains a [Int; Real]
-      let arithmetic op = List.contains op [Add; Sub; Mul; Div; Mod]
+      let arithmetic op = List.contains op [Add; Sub; Mul; Div; Mod; Pow]
       let comparison op = List.contains op [Eq; Neq; Lt; Lte; Gt; Gte]
 
       match op, a, b with
@@ -86,18 +86,21 @@ let rec typeCheckStmt env stmt =
       typeCheckExpr env e >>= fun t' ->
       mustBe t t' &> env
 
-  | Read e -> typeCheckLValue env e &> env
+  | Read e -> typeCheckLValue env e >>= function
+      | Array _ -> Error "Cannot read entire array values"
+      | _ -> Ok env
+
   | Write es -> traverse_ (typeCheckExpr env) es &> env
 
   | If (c, t, e) ->
-      let else' = Option.fold (fun _ -> typeCheckStmt env) (Ok env) e
+      let else' = Option.fold (fun _ -> typeCheckStmts env) (Ok env) e
       typeCheckExpr env c >>= function
-        | Bool -> typeCheckStmt env t *> else' &> env
+        | Bool -> typeCheckStmts env t *> else' &> env
         | _ -> Error "If condition is not a boolean"
 
   | While (c, s) ->
       typeCheckExpr env c >>= function
-        | Bool -> typeCheckStmt env s &> env
+        | Bool -> typeCheckStmts env s &> env
         | _ -> Error "While condition is not a boolean"
 
   | For (i, a, b, s) ->
@@ -106,8 +109,15 @@ let rec typeCheckStmt env stmt =
       else
         typeCheckExpr env a >>= fun ta ->
         mustBe ta Int *>
+
         typeCheckExpr env b >>= fun tb ->
         mustBe tb Int *>
-        typeCheckStmt env s &> env
 
-  | Seq (a, b) -> typeCheckStmt env a >>= flip typeCheckStmt b
+        let env = Map.add i Int env
+        typeCheckStmts env s &> env
+
+and typeCheckStmts env = function
+  | [] -> Ok env
+  | stmt :: stmts -> typeCheckStmt env stmt >>= flip typeCheckStmts stmts
+
+let typeCheckProgram stmts = typeCheckStmts Map.empty stmts &> stmts

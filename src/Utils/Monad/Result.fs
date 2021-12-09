@@ -1,6 +1,6 @@
-module Utils.Result
+module Utils.Monad.Result
 
-open Utils.Misc
+open Utils.Function
 
 let (<!>) = Result.map
 let (<&>) a f = f <!> a

@@ -7,11 +7,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="src/Utils/Misc.fs"/>
-    <Compile Include="src/Utils/Result.fs"/>
+    <Compile Include="src/Utils/Function.fs"/>
+    <Compile Include="src/Utils/Monad/Result.fs"/>
+    <Compile Include="src/Utils/Monad/Parser.fs"/>
+
     <Compile Include="src/Language/Pseudocode/Syntax.fs"/>
     <Compile Include="src/Language/Pseudocode/Parser.fs"/>
     <Compile Include="src/Language/Pseudocode/TypeChecker.fs"/>
+
     <Compile Include="src/Main.fs"/>
   </ItemGroup>
 

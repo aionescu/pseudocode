@@ -1,3 +1,167 @@
 module Language.Pseudocode.Parser
 
+open System
+open FParsec
+
+open Utils.Function
+open Utils.Monad.Parser
 open Language.Pseudocode.Syntax
+
+// Misc Parsers
+
+let singleLineComment = pstring "--" *> skipRestOfLine true
+let multiLineComment = pstring "{-" *> skipManyTill anyChar (pstring "-}")
+let endLine =
+  let r = skipChar '\r'
+  let n = skipChar '\n'
+  choice [attempt <| r *> n; r; n]
+
+let ws1 = skipMany1 (choice [skipChar ' '; skipChar '\t'; multiLineComment])
+let ws = ws1 <|>% ()
+
+let wsMulti = skipMany (choice [singleLineComment; endLine; ws1])
+let stmtSep = choice [skipChar ';'; singleLineComment; endLine] *> wsMulti
+
+let comma = pchar ',' <* ws
+let equals = pchar '=' <* ws
+let colon = pchar ':' <* ws
+
+let choice' ps = choice <| List.map attempt ps
+
+// Exprs
+
+let boolLit =
+  choice [
+    stringReturn "False" (BoolLit false)
+    stringReturn "True" (BoolLit true)
+  ]
+
+let numLit =
+  choice [
+    pint64 <&> IntLit
+    pfloat <&> RealLit
+  ]
+
+let textLit: Parser<_> =
+  let normalChar = satisfy (fun c -> c <> '\\' && c <> '"')
+
+  let unescape = function
+    | 'n' -> '\n'
+    | 'r' -> '\r'
+    | 't' -> '\t'
+    | c -> c
+
+  let escapedChar = pchar '\\' *> (anyOf "\\nrt\"" <&> unescape)
+
+  between (pchar '"') (pchar '"') (manyChars <| choice [normalChar; escapedChar])
+  |>> TextLit
+
+let expr, exprRef = createParserForwardedToRef ()
+
+let arrayLit = between (pchar '[' <* ws) (pchar ']' <* ws) (sepBy expr comma) |>> ArrayLit
+
+let reserved =
+  [ "let"; "end"; "if"; "then"; "else"; "while"; "do"; "for"; "in"; "to"; "and"; "or"; "not"; "read"; "write"
+    "Integer"; "Real"; "Text"; "Boolean"; "True"; "False"
+  ]
+
+let ident =
+  let fstChar c = c = '_' || c = '\'' || isLetter c
+  let sndChar c = fstChar c || isDigit c
+
+  many1Satisfy2 fstChar sndChar >>= fun s ->
+    if List.contains s reserved then
+      fail $"Reserved identifier \"{s}\""
+    else
+      preturn s
+
+let var = ident <&> Var
+
+let parensExpr = between (pchar '(' <* ws) (pchar ')' <* ws) expr
+let exprSimple = choice' [boolLit; numLit; textLit; arrayLit; var; parensExpr] <* ws
+
+let withSubscript e =
+  let subscript = between (pchar '[' <* ws) (pchar ']' <* ws) expr
+  let unrollSubscript = List.fold (curry Subscript)
+
+  unrollSubscript <!> e <*> many subscript
+
+let opp = OperatorPrecedenceParser<Expr,unit,unit> ()
+
+exprRef.Value <- opp.ExpressionParser
+opp.TermParser <- withSubscript exprSimple
+
+opp.AddOperator(PrefixOperator("-", ws, 1, true, curry UnaryOp Neg))
+opp.AddOperator(PrefixOperator("not", ws, 1, true, curry UnaryOp Not))
+
+let ops =
+  [ ["and", And; "or", Or], Associativity.Right
+    ["==", Eq; "!=", Neq; "<", Lt; "<=", Lte; ">", Gt; ">=", Gte], Associativity.None
+    ["+", Add; "-", Sub], Associativity.Left
+    ["*", Mul; "/", Div; "%", Mod], Associativity.Left
+    ["^", Pow], Associativity.Right
+  ]
+
+for prec, (ops, assoc) in List.indexed ops do
+  for (opStr, op) in ops do
+    opp.AddOperator(InfixOperator(opStr, ws, prec + 1, assoc, fun a b -> BinaryOp (a, op, b)))
+
+// Types
+
+let primType =
+  choice [
+    stringReturn "Integer" Int
+    stringReturn "Real" Real
+    stringReturn "Text" Text
+    stringReturn "Boolean" Bool
+  ]
+
+let type', typeRef = createParserForwardedToRef ()
+
+let arrayType = between (pchar '[' <* ws) (pchar ']' <* ws) type' |>> Array
+typeRef.Value <- choice [arrayType; primType] <* ws
+
+// Stmts
+
+let lvalue = withSubscript (var <* ws)
+
+let let' =
+  curry3 Let
+  <!> (pstring "let" *> ws *> ident <* ws)
+  <*> opt (colon *> type')
+  <*> (equals *> expr)
+
+let assign = curry Assign <!> (lvalue <* equals) <*> expr
+
+let read = pstring "read" *> ws *> lvalue <&> Read
+
+let write = pstring "write" *> ws *> sepBy expr comma <&> Write
+
+let stmt, stmtRef = createParserForwardedToRef ()
+
+let stmts = many (stmt <* stmtSep)
+
+let end' = pstring "end"
+
+let if' =
+  curry3 If
+  <!> (pstring "if" *> ws *> expr)
+  <*> (pstring "then" *> stmtSep *> stmts)
+  <*> (opt (pstring "else" *> stmtSep *> stmts) <* end')
+
+let while' =
+  curry While
+  <!> (pstring "while" *> ws *> expr)
+  <*> (pstring "do" *> stmtSep *> stmts <* end')
+
+let for' =
+  curry4 For
+  <!> (pstring "for" *> ws *> ident <* ws)
+  <*> (equals *> expr)
+  <*> (pstring "to" *> ws *> expr)
+  <*> (pstring "do" *> stmtSep *> stmts <* end')
+
+stmtRef.Value <-
+  choice' [for';  while'; if'; write; read; assign; let']
+
+let program = stmts <* eof
