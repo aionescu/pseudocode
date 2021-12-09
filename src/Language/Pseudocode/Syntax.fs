@@ -1,57 +1,42 @@
-﻿namespace Language.Pseudocode.Syntax
+namespace Language.Pseudocode.Syntax
 
-type Lit =
-  | NumLit of float
-  | BoolLit of bool
-  | StringLit of string
+type Id = string
 
-type PrimType =
+type Type =
   | Int
-  | Float
+  | Real
+  | Text
   | Bool
-  | String
+  | Array of Type
 
-type TypeName =
-  | Prim of PrimType
-  | Array of PrimType
-  | InlineCSharpType of string
+type UnaryOp =
+  | Not
+  | Neg
 
-type LValue =
-  | Ident of string
-  | Subscript of string * Expr
+type BinaryOp =
+  | Add | Sub | Mul | Div | Mod
+  | Eq | Neq | Lt | Lte | Gt | Gte
+  | And | Or
 
-and FuncCall =
-  | FuncCall of string * Expr list
+type Expr =
+  | IntLit of int
+  | RealLit of float
+  | TextLit of string
+  | BoolLit of bool
+  | ArrayLit of Expr list
+  | Subscript of Expr * Expr
+  | Var of Id
+  | UnaryOp of UnaryOp * Expr
+  | BinaryOp of Expr * BinaryOp * Expr
 
-and Expr =
-  | Lit of Lit
-  | LValue of LValue
-  | FuncCallExpr of FuncCall
-  | NewArray of TypeName * Expr
-  | UnOp of string * Expr
-  | BinOp of Expr * string * Expr
-  | InlineCSharpExpr of string
-
-type Statement =
-  | FuncCallStatement of FuncCall
-  | Assignment of LValue * Expr
-  | Read of LValue * TypeName
+type Stmt =
+  | Let of Id * Type option * Expr
+  | Assign of Expr * Expr
+  | Read of Expr
   | Write of Expr list
-  | If of Expr
-  | ElseIf of Expr
-  | Else
-  | While of Expr
-  | DoWhile of Expr
-  | Until of Expr
-  | Do
-  | For of string * Expr * Expr * Expr option
-  | Break
-  | Continue
-  | End
-  | Empty
-  | InlineCSharpStatement of string
-  | Subalgorithm of string * (string * TypeName) list * TypeName option
-  | Return of Expr option
-  | Import of string
+  | If of Expr * Stmt * Stmt option
+  | While of Expr * Stmt
+  | For of Id * Expr * Expr * Stmt
+  | Seq of Stmt * Stmt
 
-type Program = Program of Statement list
+type Program = Stmt list

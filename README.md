@@ -1,6 +1,6 @@
-# pseudoi
+# pseudocode
 
-Romanian pseudocode interpreter that I wrote for my programming certificate at the end of high school
+Pseudocode compiler for .NET
 
 ## Building and running
 

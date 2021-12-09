@@ -1,5 +1,0 @@
-importa preludiu
-
-a <- Intreg[5]
-citesteSir(a)
-scrieSir(a)

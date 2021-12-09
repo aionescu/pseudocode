@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net6.0</TargetFramework>
+    <Optimize>true</Optimize>
+    <Tailcalls>true</Tailcalls>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="src/Utils/Misc.fs"/>
+    <Compile Include="src/Utils/Result.fs"/>
+    <Compile Include="src/Language/Pseudocode/Syntax.fs"/>
+    <Compile Include="src/Language/Pseudocode/Parser.fs"/>
+    <Compile Include="src/Language/Pseudocode/TypeChecker.fs"/>
+    <Compile Include="src/Main.fs"/>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="FParsec" Version="1.1.1"/>
+  </ItemGroup>
+</Project>
