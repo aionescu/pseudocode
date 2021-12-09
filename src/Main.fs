@@ -9,7 +9,9 @@ open Language.Pseudocode.Parser
 open Language.Pseudocode.TypeChecker
 
 let getInput = function
-  | [|path|] -> Ok (path, File.ReadAllText path)
+  | [|path|] ->
+      try Ok (path, File.ReadAllText path)
+      with e -> Error e.Message
   | _ -> Error "Expecting exactly 1 command-line argument"
 
 [<EntryPoint>]
