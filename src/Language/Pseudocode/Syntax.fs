@@ -14,9 +14,18 @@ type UnaryOp =
   | Neg
 
 type BinaryOp =
-  | Add | Sub | Mul | Div | Mod | Pow
+  | Add | Sub | Mul | Div | Mod
+  | Pow
+  | Append
   | Eq | Neq | Lt | Lte | Gt | Gte
   | And | Or
+
+let (|ArithOp|Pow|Append|CompOp|LogicOp|) = function
+  | Add | Sub | Mul | Div | Mod -> ArithOp
+  | Pow -> Pow
+  | Append -> Append
+  | Eq | Neq | Lt | Lte | Gt | Gte -> CompOp
+  | And | Or -> LogicOp
 
 type Expr =
   | BoolLit of bool
@@ -39,8 +48,3 @@ type Stmt =
   | For of Id * Expr * Expr * Stmt list
 
 type Program = Stmt list
-
-let (|ArithmeticOp|ComparisonOp|LogicOp|) = function
-  | Add | Sub | Mul | Div | Mod | Pow -> ArithmeticOp
-  | Eq | Neq | Lt | Lte | Gt | Gte -> ComparisonOp
-  | And | Or -> LogicOp

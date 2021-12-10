@@ -39,15 +39,19 @@ let rec typeCheckExpr env expr =
 
   | BinaryOp (a, op, b) ->
       let numeric a = List.contains a [Int; Real]
+      let primitive = function
+        | Array _ -> false
+        | _ -> true
 
       typeCheckExpr env a >>= fun a ->
       typeCheckExpr env b >>= fun b ->
 
       match op, a, b with
-      | Add, Text, Text -> Ok Text
-      | Add, Array _, _ when a = b -> Ok a
-      | ArithmeticOp, a, b when a = b && numeric a -> Ok a
-      | ComparisonOp, a, b when a = b -> Ok Bool
+      | ArithOp, a, b when a = b && numeric a -> Ok a
+      | Pow, Real, Real -> Ok a
+      | Append, Text, Text -> Ok Text
+      | Append, Array _, _ when a = b -> Ok a
+      | CompOp, a, b when a = b && primitive a -> Ok Bool
       | LogicOp, Bool, Bool -> Ok Bool
       | _ -> Error "Invalid binary op"
 

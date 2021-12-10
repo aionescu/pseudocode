@@ -44,11 +44,24 @@ let rec evalExpr env expr =
 
   | BinaryOp (a, op, b) ->
       match op with
-      | ArithmeticOp -> evalArithmeticOp env op a b
-      | ComparisonOp -> evalComparisonOp env op a b
+      | ArithOp -> evalArithOp env op a b
+      | Pow -> evalPow env a b
+      | Append -> evalAppend env a b
+      | CompOp -> evalCompOp env op a b
       | LogicOp -> evalLogicOp env op a b
 
-and evalArithmeticOp env op a b =
+and evalPow env a b =
+  match evalExpr env a, evalExpr env b with
+  | VReal a, VReal b -> VReal <| a ** b
+  | _ -> panic ()
+
+and evalAppend env a b =
+  match evalExpr env a, evalExpr env b with
+  | VText a, VText b -> VText <| a + b
+  | VArray a, VArray b -> VArray <| Array.append a b
+  | _ -> panic ()
+
+and evalArithOp env op a b =
   let inline evalOp op =
     match op with
     | Add -> (+)
@@ -58,14 +71,12 @@ and evalArithmeticOp env op a b =
     | Mod -> (%)
     | _ -> panic ()
 
-  match op, evalExpr env a, evalExpr env b with
-  | Add, VText a, VText b -> VText <| a + b
-  | Add, VArray a, VArray b -> VArray <| Array.append a b
-  | _, VInt a, VInt b -> VInt (evalOp op a b)
-  | _, VReal a, VReal b -> VReal (evalOp op a b)
+  match evalExpr env a, evalExpr env b with
+  | VInt a, VInt b -> VInt (evalOp op a b)
+  | VReal a, VReal b -> VReal (evalOp op a b)
   | _ -> panic ()
 
-and evalComparisonOp env op a b =
+and evalCompOp env op a b =
   let (><) =
     match op with
     | Eq -> (=)

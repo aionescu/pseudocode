@@ -12,6 +12,7 @@
     <Compile Include="src/Utils/Monad/Parser.fs"/>
 
     <Compile Include="src/Language/Pseudocode/Syntax.fs"/>
+    <Compile Include="src/Language/Pseudocode/Core.fs"/>
     <Compile Include="src/Language/Pseudocode/Parser.fs"/>
     <Compile Include="src/Language/Pseudocode/TypeChecker.fs"/>
     <Compile Include="src/Language/Pseudocode/Codegen.fs"/>
