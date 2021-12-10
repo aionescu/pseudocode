@@ -1,4 +1,4 @@
-namespace Language.Pseudocode.Syntax
+module Language.Pseudocode.Syntax
 
 type Id = string
 
@@ -19,10 +19,10 @@ type BinaryOp =
   | And | Or
 
 type Expr =
-  | IntLit of int64
+  | BoolLit of bool
+  | IntLit of int
   | RealLit of float
   | TextLit of string
-  | BoolLit of bool
   | ArrayLit of Expr list
   | Var of Id
   | Subscript of Expr * Expr
@@ -39,3 +39,8 @@ type Stmt =
   | For of Id * Expr * Expr * Stmt list
 
 type Program = Stmt list
+
+let (|ArithmeticOp|ComparisonOp|LogicOp|) = function
+  | Add | Sub | Mul | Div | Mod | Pow -> ArithmeticOp
+  | Eq | Neq | Lt | Lte | Gt | Gte -> ComparisonOp
+  | And | Or -> LogicOp

@@ -7,6 +7,7 @@ open Utils.Monad.Result
 module P = Utils.Monad.Parser
 open Language.Pseudocode.Parser
 open Language.Pseudocode.TypeChecker
+open Language.Pseudocode.Eval
 
 let getInput = function
   | [|path|] ->
@@ -20,7 +21,8 @@ let main argv =
     getInput argv
     >>= uncurry (P.parse program)
     >>= typeCheckProgram
+    <&> evalProgram
 
   match result with
   | Error e -> printfn $"Error: {e}"; 1
-  | Ok stmts -> List.iter (printfn "%A") stmts; 0
+  | Ok () -> 0

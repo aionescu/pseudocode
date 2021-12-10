@@ -38,18 +38,17 @@ let rec typeCheckExpr env expr =
         | (_, _) -> Error "Invalid unary op"
 
   | BinaryOp (a, op, b) ->
+      let numeric a = List.contains a [Int; Real]
+
       typeCheckExpr env a >>= fun a ->
       typeCheckExpr env b >>= fun b ->
 
-      let numeric a = List.contains a [Int; Real]
-      let arithmetic op = List.contains op [Add; Sub; Mul; Div; Mod; Pow]
-      let comparison op = List.contains op [Eq; Neq; Lt; Lte; Gt; Gte]
-
       match op, a, b with
-      | op, a, b when a = b && numeric a && arithmetic op -> Ok a
       | Add, Text, Text -> Ok Text
-      | op, a, b when a = b && comparison op -> Ok Bool
-      | op, Bool, Bool when List.contains op [And; Or] -> Ok Bool
+      | Add, Array _, _ when a = b -> Ok a
+      | ArithmeticOp, a, b when a = b && numeric a -> Ok a
+      | ComparisonOp, a, b when a = b -> Ok Bool
+      | LogicOp, Bool, Bool -> Ok Bool
       | _ -> Error "Invalid binary op"
 
 let mustBe a b =

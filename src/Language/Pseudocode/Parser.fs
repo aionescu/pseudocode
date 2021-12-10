@@ -36,11 +36,17 @@ let boolLit =
     stringReturn "True" (BoolLit true)
   ]
 
+let numberFormat =
+  NumberLiteralOptions.AllowMinusSign
+  ||| NumberLiteralOptions.AllowFraction
+  ||| NumberLiteralOptions.AllowExponent
+
 let numLit =
-  choice [
-    pint64 <&> IntLit
-    pfloat <&> RealLit
-  ]
+  numberLiteral numberFormat "numeric literal" <&> fun nl ->
+    if nl.IsInteger then
+      IntLit <| int nl.String
+    else
+      RealLit <| float nl.String
 
 let textLit: Parser<_> =
   let normalChar = satisfy (fun c -> c <> '\\' && c <> '"')

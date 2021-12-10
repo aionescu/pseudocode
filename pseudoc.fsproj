@@ -14,6 +14,8 @@
     <Compile Include="src/Language/Pseudocode/Syntax.fs"/>
     <Compile Include="src/Language/Pseudocode/Parser.fs"/>
     <Compile Include="src/Language/Pseudocode/TypeChecker.fs"/>
+    <Compile Include="src/Language/Pseudocode/Codegen.fs"/>
+    <Compile Include="src/Language/Pseudocode/Eval.fs"/>
 
     <Compile Include="src/Main.fs"/>
   </ItemGroup>
