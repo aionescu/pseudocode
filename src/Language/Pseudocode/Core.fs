@@ -7,12 +7,14 @@ type Instr =
   | PushReal of float
   | PushBool of bool
   | PushText of string
+  | NewArr of Type
 
   | LoadVar of Id
   | SetVar of Id
   | DeclSetVar of Id
   | Dup
-  | Subscript
+  | LoadIndex
+  | SetIndex
 
   | Read of Type
   | Write of Type
@@ -40,8 +42,5 @@ type Instr =
   | And
   | Or
 
-  | Branch of Stmt list * Stmt list
-  | NewArr of Stmt list list
-
-  | While of Stmt list * Stmt list
-  | For of Id * Stmt list * Stmt list
+  | If of Instr list * Instr list
+  | While of Instr list * Instr list

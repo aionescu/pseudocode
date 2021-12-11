@@ -11,3 +11,6 @@ let curry4 f a b c d = f (a, b, c, d)
 let curry5 f a b c d e = f (a, b, c, d, e)
 
 let cons x xs = x :: xs
+
+let (>..) f g a b = g <| f a b
+let (..<) f g = g >.. f

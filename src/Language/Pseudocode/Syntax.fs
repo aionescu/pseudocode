@@ -27,24 +27,32 @@ let (|ArithOp|Pow|Append|CompOp|LogicOp|) = function
   | Eq | Neq | Lt | Lte | Gt | Gte -> CompOp
   | And | Or -> LogicOp
 
-type Expr =
+type 'e Expr =
   | BoolLit of bool
   | IntLit of int
   | RealLit of float
   | TextLit of string
-  | ArrayLit of Expr list
+  | ArrayLit of 'e list
   | Var of Id
-  | Subscript of Expr * Expr
-  | UnaryOp of UnaryOp * Expr
-  | BinaryOp of Expr * BinaryOp * Expr
+  | Subscript of 'e * 'e
+  | UnaryOp of UnaryOp * 'e
+  | BinaryOp of 'e * BinaryOp * 'e
 
-type Stmt =
-  | Let of Id * Type option * Expr
-  | Assign of Expr * Expr
-  | Read of Expr
-  | Write of Expr list
-  | If of Expr * Stmt list * Stmt list option
-  | While of Expr * Stmt list
-  | For of Id * Expr * Expr * Stmt list
+type UExpr = U of UExpr Expr
+type TExpr = T of Type * TExpr Expr
 
-type Program = Stmt list
+let unU (U e) = e
+let unT (T (t, e)) = (t, e)
+let ty (T (t, _)) = t
+let ex (T (_, e)) = e
+
+type 'e Stmt =
+  | Let of Id * Type option * 'e
+  | Assign of 'e * 'e
+  | Read of 'e
+  | Write of 'e list
+  | If of 'e * 'e Stmt list * 'e Stmt list
+  | While of 'e * 'e Stmt list
+  | For of Id * 'e * 'e * 'e Stmt list
+
+type Program = UExpr Stmt list

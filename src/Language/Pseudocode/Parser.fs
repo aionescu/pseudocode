@@ -32,8 +32,8 @@ let choice' ps = choice <| List.map attempt ps
 
 let boolLit =
   choice [
-    stringReturn "False" (BoolLit false)
-    stringReturn "True" (BoolLit true)
+    stringReturn "False" (U <| BoolLit false)
+    stringReturn "True" (U <| BoolLit true)
   ]
 
 let numberFormat =
@@ -44,9 +44,9 @@ let numberFormat =
 let numLit =
   numberLiteral numberFormat "numeric literal" <&> fun nl ->
     if nl.IsInteger then
-      IntLit <| int nl.String
+      U << IntLit <| int nl.String
     else
-      RealLit <| float nl.String
+      U << RealLit <| float nl.String
 
 let textLit: Parser<_> =
   let normalChar = satisfy (fun c -> c <> '\\' && c <> '"')
@@ -60,15 +60,18 @@ let textLit: Parser<_> =
   let escapedChar = pchar '\\' *> (anyOf "\\nrt\"" <&> unescape)
 
   between (pchar '"') (pchar '"') (manyChars <| choice [normalChar; escapedChar])
-  |>> TextLit
+  <&> (TextLit >> U)
 
 let expr, exprRef = createParserForwardedToRef ()
 
-let arrayLit = between (pchar '[' <* ws) (pchar ']' <* ws) (sepBy expr comma) |>> ArrayLit
+let arrayLit =
+  between (pchar '[' <* ws) (pchar ']' <* ws) (sepBy expr comma)
+  <&> (ArrayLit >> U)
 
 let reserved =
   [ "let"; "end"; "if"; "then"; "else"; "while"; "do"; "for"; "in"; "to"; "and"; "or"; "not"; "read"; "write"
-    "Integer"; "Real"; "Text"; "Boolean"; "True"; "False"
+    "Integer"; "Real"; "Text"; "Boolean";
+    "True"; "False"
   ]
 
 let ident =
@@ -81,24 +84,24 @@ let ident =
     else
       preturn s
 
-let var = ident <&> Var
+let var = ident <&> (Var >> U)
 
 let parensExpr = between (pchar '(' <* ws) (pchar ')' <* ws) expr
 let exprSimple = choice' [boolLit; numLit; textLit; arrayLit; var; parensExpr] <* ws
 
 let withSubscript e =
   let subscript = between (pchar '[' <* ws) (pchar ']' <* ws) expr
-  let unrollSubscript = List.fold (curry Subscript)
+  let unrollSubscript = List.fold <| curry (Subscript >> U)
 
   unrollSubscript <!> e <*> many subscript
 
-let opp = OperatorPrecedenceParser<Expr,unit,unit> ()
+let opp = OperatorPrecedenceParser ()
 
 exprRef.Value <- opp.ExpressionParser
 opp.TermParser <- withSubscript exprSimple
 
-opp.AddOperator(PrefixOperator("-", ws, 1, true, curry UnaryOp Neg))
-opp.AddOperator(PrefixOperator("not", ws, 1, true, curry UnaryOp Not))
+opp.AddOperator(PrefixOperator("-", ws, 1, true, curry UnaryOp Neg >> U))
+opp.AddOperator(PrefixOperator("not", ws, 1, true, curry UnaryOp Not >> U))
 
 let ops =
   [ ["and", And; "or", Or], Associativity.Right
@@ -110,7 +113,7 @@ let ops =
 
 for prec, (ops, assoc) in List.indexed ops do
   for (opStr, op) in ops do
-    opp.AddOperator(InfixOperator(opStr, ws, prec + 1, assoc, fun a b -> BinaryOp (a, op, b)))
+    opp.AddOperator(InfixOperator(opStr, ws, prec + 1, assoc, fun a b -> U <| BinaryOp (a, op, b)))
 
 // Types
 
@@ -153,7 +156,7 @@ let if' =
   curry3 If
   <!> (pstring "if" *> ws *> expr)
   <*> (pstring "then" *> stmtSep *> stmts)
-  <*> (opt (pstring "else" *> stmtSep *> stmts) <* end')
+  <*> ((pstring "else" *> stmtSep *> stmts) <|>% [] <* end')
 
 let while' =
   curry While
@@ -170,4 +173,4 @@ let for' =
 stmtRef.Value <-
   choice' [for';  while'; if'; write; read; assign; let']
 
-let program = stmts <* eof
+let program: Program Parser = stmts <* eof

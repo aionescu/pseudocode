@@ -19,10 +19,10 @@ let rec showVal = function
   | VText s -> s
   | VArray vs -> "[" + String.Join(", ", Array.map showVal vs) + "]"
 
-let panic () = failwith "Runtime error. Did you run the typechecker?"
+let panic () = failwith "Panic in Eval"
 
 let rec evalExpr env expr =
-  match expr with
+  match ex expr with
   | BoolLit b -> VBool b
   | IntLit i -> VInt i
   | RealLit r -> VReal r
@@ -66,7 +66,7 @@ and evalArithOp env op a b =
     match op with
     | Add -> (+)
     | Sub -> (-)
-    | Mul -> (*)
+    | Mul -> ( * )
     | Div -> (/)
     | Mod -> (%)
     | _ -> panic ()
@@ -108,12 +108,13 @@ let assign env e v =
     | VInt i -> i
     | _ -> panic ()
 
-  let rec getArray = function
+  let rec getArray e =
+    match ex e with
     | Var a -> unArray <| Map.find a env
     | Subscript (a, i) -> unArray <| (getArray a)[unInt <| evalExpr env i]
     | _ -> panic ()
 
-  match e with
+  match ex e with
   | Var i -> Map.add i v env
   | Subscript (a, i) -> (getArray a)[unInt <| evalExpr env i] <- v; env
   | _ -> panic ()
@@ -140,7 +141,7 @@ let rec evalStmt env stmt =
   | If (c, t, e) ->
       match evalExpr env c with
       | VBool true -> evalStmts env t
-      | VBool false -> evalStmts env (defaultArg e [])
+      | VBool false -> evalStmts env e
       | _ -> panic ()
 
   | While (c, s) as w ->
@@ -155,8 +156,10 @@ let rec evalStmt env stmt =
         | VInt i, VInt b when i > b -> env
         | _ -> evalStmts env s |> go i b s
 
+      let var = T (ty b, Var i)
+
       go i b
-        (List.append s [Assign (Var i, BinaryOp (Var i, Add, IntLit 1))])
+        (s @ [Assign (var, T <| (Int, BinaryOp (var, Add, T (Int, IntLit 1))))])
         (Map.add i (evalExpr env a) env)
 
 and evalStmts env = function
