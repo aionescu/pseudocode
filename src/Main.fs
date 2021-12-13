@@ -11,6 +11,7 @@ open Backend.Eval
 open Frontend.Syntax
 open Midend.Renamer
 open Midend.Simplifier
+open Midend.CoreTypeChecker
 
 let getInput = function
   | [|path|] ->
@@ -25,7 +26,10 @@ let main argv =
     >>= uncurry (P.parse program)
     >>= typeCheckProgram
     <&> renameProgram
-    <&> uncurry simplifyProgram
+    >>= fun (max, stmts) ->
+      let core = simplifyProgram max stmts
+      let vars = varList max
+      typeCheckCore vars core
 
   match result with
   | Error e -> printfn $"Error: {e}"; 1
