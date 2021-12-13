@@ -46,6 +46,10 @@ let rec simplifyExpr env (T (t, e)) =
       [PushInt l; NewArr t] @ List.collect (uncurry setElem) (List.indexed es)
 
   | Var i -> [LoadVar <| Map.find i env]
+
+  | Expr.Read None -> [Read t]
+  | Expr.Read (Some e) -> simplifyExpr env e @ [Write Text; Read t]
+
   | Subscript (a, i) -> simplifyExpr env a @ simplifyExpr env i @ [LoadIndex]
   | Expr.Not e -> simplifyExpr env e @ [Not]
   | Negate e -> simplifyExpr env e @ [Neg]
@@ -70,17 +74,9 @@ let rec simplifyStmt env stmt =
       simplifyExpr env a @ simplifyExpr env i @ simplifyExpr env e @ [SetIndex]
   | Assign _ -> panic ()
 
-  | Stmt.Read (T (t, Var i)) -> [Read t; SetVar <| Map.find i env]
-  | Stmt.Read (T (t, Subscript (a, i))) -> simplifyExpr env a @ simplifyExpr env i @ [Read t; SetIndex]
-  | Stmt.Read _ -> panic ()
-
   | Stmt.Write es ->
-      let space = T (Text, TextLit " ")
-      let newLine = T (Text, TextLit "\n")
       let writeSingle (T (t, _) as e) = simplifyExpr env e @ [Write t]
-
-      intercalate space es @ [newLine]
-      |> List.collect writeSingle
+      List.collect writeSingle es @ [WriteLine]
 
   | Stmt.If (c, t, e) -> simplifyExpr env c @ [If (simplifyStmts env t, simplifyStmts env e)]
   | Stmt.While (c, s) -> [While (simplifyExpr env c, simplifyStmts env s)]

@@ -1,8 +1,4 @@
-let n = 0
-
-write "Enter n:"
-read n
-
+let n: Integer = read "Enter n: "
 let f = 1
 
 for i = 2 to n do

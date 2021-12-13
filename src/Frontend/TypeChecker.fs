@@ -51,6 +51,11 @@ let rec typeCheckExpr env t (U expr) =
 
   | Var i -> lookupVar i env >>= fun t' -> mustBe t t' &> T (t', Var i)
 
+  | Read None -> mustNotBeArray "read" t &> T (t, Read None)
+  | Read (Some e) ->
+      typeCheckExpr env Text e >>= fun e ->
+      mustNotBeArray "read" t &> T (t, Read <| Some e)
+
   | Subscript (a, i) ->
       typeCheckExpr env (Array t) a >>= fun a ->
       typeCheckExpr env Int i <&> fun i ->
@@ -111,6 +116,10 @@ and typeInferExpr env (U expr) =
             Ok <| T (Array t, ArrayLit es)
         | _ -> Error "Mismatched types in array literal"
 
+  | Var i -> lookupVar i env <&> fun t -> T (t, Var i)
+
+  | Read _ -> Error "Can't infer the type of read-expressions; Please add a type annotation"
+
   | Subscript (a, i) ->
       typeInferExpr env a >>= fun a ->
         match ty a with
@@ -118,8 +127,6 @@ and typeInferExpr env (U expr) =
             typeCheckExpr env Int i <&> fun i ->
             T (t, Subscript (a, i))
         | _ -> Error "Cannot subscript into non-array values"
-
-  | Var i -> lookupVar i env <&> fun t -> T (t, Var i)
 
   | Not e ->
       typeCheckExpr env Bool e <&> fun e ->
@@ -178,12 +185,6 @@ let rec typeCheckStmt env stmt =
       let t = ty lhs
       typeCheckExpr env t e <&> fun e ->
       (env, Assign (lhs, e))
-
-  | Read e ->
-      mustBeLValue e *>
-      typeInferExpr env e >>= fun e ->
-      mustNotBeArray "read" (ty e) &>
-      (env, Read e)
 
   | Write es -> traverse (typeInferExpr env) es <&> fun es -> (env, Write es)
 

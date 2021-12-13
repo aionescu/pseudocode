@@ -21,15 +21,29 @@ let rec showVal = function
 
 let panic () = failwith "Panic in Eval"
 
-let rec evalExpr env (T (_, expr)) =
+let rec evalExpr env (T (t, expr)) =
   match expr with
   | BoolLit b -> VBool b
   | IntLit i -> VInt i
   | RealLit r -> VReal r
-  | TextLit s -> VText s
+  | TextLit t -> VText t
 
   | ArrayLit es -> List.map (evalExpr env) es |> List.toArray |> VArray
   | Var v -> Map.find v env
+
+  | Read e ->
+      match Option.map (evalExpr env) e with
+      | Some (VText s) -> Console.Write s
+      | _ -> ()
+
+      let line = Console.ReadLine()
+
+      match t with
+      | Int -> VInt <| int line
+      | Real -> VReal <| float line
+      | Bool -> VBool <| Boolean.Parse(line)
+      | Text -> VText line
+      | _ -> panic ()
 
   | Subscript (e, i) ->
       match evalExpr env e, evalExpr env i with
@@ -103,16 +117,6 @@ let rec evalStmt env stmt =
   match stmt with
   | Let (v, _, e) -> Map.add v (evalExpr env e) env
   | Assign (v, e) -> assign env v (evalExpr env e)
-
-  | Read e ->
-      let line = Console.ReadLine()
-      assign env e <|
-        match ty e with
-        | Int -> VInt <| int line
-        | Real -> VReal <| float line
-        | Bool -> VBool <| Boolean.Parse(line)
-        | Text -> VText line
-        | _ -> panic ()
 
   | Write es -> Console.WriteLine(String.concat "" (List.map (evalExpr env >> showVal) es)); env
 

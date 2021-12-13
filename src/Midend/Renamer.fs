@@ -26,6 +26,7 @@ let rec renameExpr env = mapEx <| fun expr ->
     | TextLit t -> TextLit t
     | ArrayLit es -> ArrayLit <| List.map (renameExpr env) es
     | Var i -> Var <| Map.find i env
+    | Read e -> Read <| Option.map (renameExpr env) e
     | Subscript (a, i) -> Subscript (renameExpr env a, renameExpr env i)
     | Not e -> Not <| renameExpr env e
     | Negate e -> Negate <| renameExpr env e
@@ -52,7 +53,6 @@ let rec renameStmt env live max stmt =
       env', live, max, Let ((t, idx), Some t, renameExpr env e)
 
   | Assign (i, e) -> env, live, max, Assign (renameExpr env i, renameExpr env e)
-  | Read e -> env, live, max, Read (renameExpr env e)
   | Write es -> env, live, max, Write <| List.map (renameExpr env) es
 
   | If (c, t, e) ->

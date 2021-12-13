@@ -19,6 +19,7 @@ type Instr =
 
   | Read of Type
   | Write of Type
+  | WriteLine
 
   | Add
   | Sub

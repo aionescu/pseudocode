@@ -85,8 +85,10 @@ let ident =
 
 let var = ident <&> (Var >> U)
 
+let read = pstring "read" *> ws *> opt expr <&> (Read >> U)
+
 let parensExpr = between (pchar '(' <* ws) (pchar ')' <* ws) expr
-let exprSimple = choice' [boolLit; numLit; textLit; arrayLit; var; parensExpr] <* ws
+let exprSimple = choice' [boolLit; numLit; textLit; arrayLit; var; read; parensExpr] <* ws
 
 let withSubscript e =
   let subscript = between (pchar '[' <* ws) (pchar ']' <* ws) expr
@@ -147,8 +149,6 @@ let let' =
 
 let assign = curry Assign <!> (lvalue <* equals) <*> expr
 
-let read = pstring "read" *> ws *> lvalue <&> Read
-
 let write = pstring "write" *> ws *> sepBy expr comma <&> Write
 
 let stmt, stmtRef = createParserForwardedToRef ()
@@ -176,6 +176,6 @@ let for' =
   <*> (pstring "do" *> stmtSep *> stmts <* end')
 
 stmtRef.Value <-
-  choice' [for';  while'; if'; write; read; assign; let']
+  choice' [for';  while'; if'; write; assign; let']
 
 let program: Program Parser = stmts <* eof

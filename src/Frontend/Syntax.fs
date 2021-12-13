@@ -43,6 +43,7 @@ type Expr<'id, 'e> =
   | TextLit of string
   | ArrayLit of 'e list
   | Var of 'id
+  | Read of 'e option
   | Subscript of 'e * 'e
   | Not of 'e
   | Negate of 'e
@@ -64,7 +65,6 @@ let mapEx f (T (t, e)) = T (t, f e)
 type Stmt<'id, 'e> =
   | Let of 'id * Type option * 'e
   | Assign of 'e * 'e
-  | Read of 'e
   | Write of 'e list
   | If of 'e * Stmt<'id, 'e> list * Stmt<'id, 'e> list
   | While of 'e * Stmt<'id, 'e> list
