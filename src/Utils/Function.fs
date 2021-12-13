@@ -15,8 +15,3 @@ let (..<) f g = g >.. f
 
 let cons x xs = x :: xs
 let swap (a, b) = (b, a)
-
-let rec intercalate sep = function
-  | [] -> []
-  | [x] -> [x]
-  | x :: xs -> x :: sep :: intercalate sep xs

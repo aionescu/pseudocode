@@ -12,6 +12,7 @@ open Frontend.Syntax
 open Midend.Renamer
 open Midend.Simplifier
 open Midend.CoreTypeChecker
+open Backend.CoreEval
 
 let getInput = function
   | [|path|] ->
@@ -30,7 +31,8 @@ let main argv =
       let core = simplifyProgram max stmts
       let vars = varList max
       typeCheckCore vars core
+      <&> evalCore vars
 
   match result with
   | Error e -> printfn $"Error: {e}"; 1
-  | Ok p -> List.iter (printfn "%A") p; 0
+  | Ok () -> 0
