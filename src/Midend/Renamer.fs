@@ -5,6 +5,8 @@ open Frontend.Syntax
 open Frontend.TypeChecker
 open Utils.Function
 
+type TyIdx = Type * int
+
 let panic () = failwith "Panic in Renamer"
 
 let unionWith f a b =
@@ -47,7 +49,7 @@ let rec renameStmt env live max stmt =
   | Let (_, None, _) -> panic ()
   | Let (i, Some t, e) ->
       let env', live, max, idx = allocVar env live max t i
-      env', live, max, Let (idx, Some t, renameExpr env e)
+      env', live, max, Let ((t, idx), Some t, renameExpr env e)
 
   | Assign (i, e) -> env, live, max, Assign (renameExpr env i, renameExpr env e)
   | Read e -> env, live, max, Read (renameExpr env e)
@@ -66,7 +68,7 @@ let rec renameStmt env live max stmt =
   | For (i, a, b, s) ->
       let env', live', max, idx = allocVar env live max Int i
       let _, _, max, s = renameStmts env' live' max s
-      env, live, max, For (idx, renameExpr env a, renameExpr env b, s)
+      env, live, max, For ((Int, idx), renameExpr env a, renameExpr env b, s)
 
 and renameStmts env live max = function
   | [] -> env, live, max, []
@@ -75,4 +77,6 @@ and renameStmts env live max = function
       let env, live, max, stmts = renameStmts env live max stmts
       env, live, max, stmt :: stmts
 
-let renameProgram stmts = renameStmts Map.empty Map.empty Map.empty stmts
+let renameProgram stmts : _ * Stmt<TyIdx, TExpr<TyIdx>> list =
+  let _, _, max, stmts = renameStmts Map.empty Map.empty Map.empty stmts
+  max, stmts

@@ -2,7 +2,7 @@ module Midend.Core
 
 open Frontend.Syntax
 
-type Idx = Type * int
+type Idx = int
 
 type Instr =
   | PushInt of int
@@ -11,9 +11,8 @@ type Instr =
   | PushText of string
   | NewArr of Type
 
-  | LoadVar of Id
-  | SetVar of Id
-  | DeclSetVar of Id
+  | LoadVar of Idx
+  | SetVar of Idx
   | Dup
   | LoadIndex
   | SetIndex
@@ -38,11 +37,8 @@ type Instr =
   | Gt of isText: bool
   | Gte of isText: bool
 
-  | Neg
   | Not
-
-  | And
-  | Or
+  | Neg
 
   | If of Instr list * Instr list
   | While of Instr list * Instr list

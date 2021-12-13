@@ -10,6 +10,7 @@ open Frontend.TypeChecker
 open Backend.Eval
 open Frontend.Syntax
 open Midend.Renamer
+open Midend.Simplifier
 
 let getInput = function
   | [|path|] ->
@@ -24,7 +25,8 @@ let main argv =
     >>= uncurry (P.parse program)
     >>= typeCheckProgram
     <&> renameProgram
+    <&> uncurry simplifyProgram
 
   match result with
   | Error e -> printfn $"Error: {e}"; 1
-  | Ok p -> printfn $"{p}"; 0
+  | Ok p -> List.iter (printfn "%A") p; 0

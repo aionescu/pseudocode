@@ -17,6 +17,7 @@
 
     <Compile Include="src/Midend/Core.fs"/>
     <Compile Include="src/Midend/Renamer.fs"/>
+    <Compile Include="src/Midend/Simplifier.fs"/>
 
     <Compile Include="src/Backend/Eval.fs"/>
     <Compile Include="src/Backend/Codegen.fs"/>

@@ -139,12 +139,10 @@ let rec showStmt = function
 
 and showNested stmts =
   stmts
-  |> List.map showStmt
-  |> List.concat
+  |> List.collect showStmt
   |> List.map ((+) "  ")
 
 let showProgram stmts =
   stmts
-  |> List.map showStmt
-  |> List.concat
+  |> List.collect showStmt
   |> String.concat "\n"
