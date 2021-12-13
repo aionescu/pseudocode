@@ -2,11 +2,24 @@ module Backend.CoreEval
 
 open Frontend.Syntax
 open Midend.Core
-open Backend.Eval
 open System
 open Utils.Function
 
 let panic () = failwith "Panic in CoreEval"
+
+type Val =
+  | VBool of bool
+  | VInt of int
+  | VReal of float
+  | VText of string
+  | VArray of Val array
+
+let rec showVal = function
+  | VBool b -> string b
+  | VInt i -> string i
+  | VReal r -> string r
+  | VText s -> s
+  | VArray vs -> "[" + String.concat ", " (Array.map showVal vs) + "]"
 
 let inline arith op =
   match op with
