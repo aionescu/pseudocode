@@ -1,11 +1,10 @@
-module Language.Pseudocode.Parser
+module Frontend.Parser
 
-open System
 open FParsec
 
 open Utils.Function
-open Utils.Monad.Parser
-open Language.Pseudocode.Syntax
+open Utils.Parser
+open Frontend.Syntax
 
 // Misc Parsers
 
@@ -95,13 +94,13 @@ let withSubscript e =
 
   unrollSubscript <!> e <*> many subscript
 
-let opp = OperatorPrecedenceParser ()
+let ws' = ws *> notFollowedByL (pchar '-') "minus"
 
-exprRef.Value <- opp.ExpressionParser
+let opp = OperatorPrecedenceParser ()
 opp.TermParser <- withSubscript exprSimple
 
-opp.AddOperator(PrefixOperator("-", ws, 1, true, Negate >> U))
-opp.AddOperator(PrefixOperator("not", ws, 1, true, Not >> U))
+opp.AddOperator(PrefixOperator("-", ws', 1, true, Negate >> U))
+opp.AddOperator(PrefixOperator("not", ws', 1, true, Not >> U))
 
 let ops =
   let arith = curry3 Arith
@@ -117,7 +116,9 @@ let ops =
 
 for prec, (ops, assoc) in List.indexed ops do
   for (opStr, op) in ops do
-    opp.AddOperator(InfixOperator(opStr, ws, prec + 1, assoc, op >.. U))
+    opp.AddOperator(InfixOperator(opStr, ws', prec + 1, assoc, op >.. U))
+
+exprRef.Value <- opp.ExpressionParser
 
 // Types
 

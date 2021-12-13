@@ -1,8 +1,8 @@
-module Language.Pseudocode.TypeChecker
+module Frontend.TypeChecker
 
 open Utils.Function
-open Utils.Monad.Result
-open Language.Pseudocode.Syntax
+open Utils.Result
+open Frontend.Syntax
 
 let mustBeNumeric = function
   | Int | Real -> Ok ()

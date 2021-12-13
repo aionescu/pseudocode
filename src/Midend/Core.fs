@@ -1,6 +1,8 @@
-module Language.Pseudocode.Core
+module Midend.Core
 
-open Language.Pseudocode.Syntax
+open Frontend.Syntax
+
+type Idx = Type * int
 
 type Instr =
   | PushInt of int

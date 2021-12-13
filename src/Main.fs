@@ -3,11 +3,13 @@
 open System.IO
 
 open Utils.Function
-open Utils.Monad.Result
-module P = Utils.Monad.Parser
-open Language.Pseudocode.Parser
-open Language.Pseudocode.TypeChecker
-open Language.Pseudocode.Eval
+open Utils.Result
+module P = Utils.Parser
+open Frontend.Parser
+open Frontend.TypeChecker
+open Backend.Eval
+open Frontend.Syntax
+open Midend.Renamer
 
 let getInput = function
   | [|path|] ->
@@ -21,8 +23,8 @@ let main argv =
     getInput argv
     >>= uncurry (P.parse program)
     >>= typeCheckProgram
-    <&> evalProgram
+    <&> allocVarsProgram
 
   match result with
   | Error e -> printfn $"Error: {e}"; 1
-  | Ok () -> 0
+  | Ok p -> printfn $"{p}"; 0

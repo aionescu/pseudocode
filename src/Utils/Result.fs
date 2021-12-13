@@ -1,4 +1,4 @@
-module Utils.Monad.Result
+module Utils.Result
 
 open Utils.Function
 

@@ -1,9 +1,9 @@
-module Language.Pseudocode.Eval
+module Backend.Eval
 
 open System
 
 open Utils.Function
-open Language.Pseudocode.Syntax
+open Frontend.Syntax
 
 type Val =
   | VBool of bool
@@ -17,7 +17,7 @@ let rec showVal = function
   | VInt i -> string i
   | VReal r -> string r
   | VText s -> s
-  | VArray vs -> "[" + String.Join(", ", Array.map showVal vs) + "]"
+  | VArray vs -> "[" + String.concat ", " (Array.map showVal vs) + "]"
 
 let panic () = failwith "Panic in Eval"
 
@@ -114,7 +114,7 @@ let rec evalStmt env stmt =
         | Text -> VText line
         | _ -> panic ()
 
-  | Write es -> Console.WriteLine(String.Join(" ", List.map (evalExpr env >> showVal) es)); env
+  | Write es -> Console.WriteLine(String.concat "" (List.map (evalExpr env >> showVal) es)); env
 
   | If (c, t, e) ->
       match evalExpr env c with

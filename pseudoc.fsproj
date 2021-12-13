@@ -8,15 +8,18 @@
 
   <ItemGroup>
     <Compile Include="src/Utils/Function.fs"/>
-    <Compile Include="src/Utils/Monad/Result.fs"/>
-    <Compile Include="src/Utils/Monad/Parser.fs"/>
+    <Compile Include="src/Utils/Result.fs"/>
+    <Compile Include="src/Utils/Parser.fs"/>
 
-    <Compile Include="src/Language/Pseudocode/Syntax.fs"/>
-    <Compile Include="src/Language/Pseudocode/Core.fs"/>
-    <Compile Include="src/Language/Pseudocode/Parser.fs"/>
-    <Compile Include="src/Language/Pseudocode/TypeChecker.fs"/>
-    <Compile Include="src/Language/Pseudocode/Codegen.fs"/>
-    <Compile Include="src/Language/Pseudocode/Eval.fs"/>
+    <Compile Include="src/Frontend/Syntax.fs"/>
+    <Compile Include="src/Frontend/Parser.fs"/>
+    <Compile Include="src/Frontend/TypeChecker.fs"/>
+
+    <Compile Include="src/Midend/Core.fs"/>
+    <Compile Include="src/Midend/Renamer.fs"/>
+
+    <Compile Include="src/Backend/Eval.fs"/>
+    <Compile Include="src/Backend/Codegen.fs"/>
 
     <Compile Include="src/Main.fs"/>
   </ItemGroup>
