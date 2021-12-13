@@ -42,7 +42,7 @@ let allocVar env live max' ty name =
   let live = Map.add ty idx live
   (Map.add name (ty, idx) env, live, unionWith max max' live, idx)
 
-let rec allocVarsStmt env live max stmt =
+let rec renameStmt env live max stmt =
   match stmt with
   | Let (_, None, _) -> panic ()
   | Let (i, Some t, e) ->
@@ -54,25 +54,25 @@ let rec allocVarsStmt env live max stmt =
   | Write es -> env, live, max, Write <| List.map (renameExpr env) es
 
   | If (c, t, e) ->
-      let _, _, max, t = allocVarsStmts env live max t
-      let _, _, max, e = allocVarsStmts env live max e
+      let _, _, max, t = renameStmts env live max t
+      let _, _, max, e = renameStmts env live max e
 
       env, live, max, If (renameExpr env c, t, e)
 
   | While (c, s) ->
-      let _, _, max, s = allocVarsStmts env live max s
+      let _, _, max, s = renameStmts env live max s
       env, live, max, While (renameExpr env c, s)
 
   | For (i, a, b, s) ->
       let env', live', max, idx = allocVar env live max Int i
-      let _, _, max, s = allocVarsStmts env' live' max s
+      let _, _, max, s = renameStmts env' live' max s
       env, live, max, For (idx, renameExpr env a, renameExpr env b, s)
 
-and allocVarsStmts env live max = function
+and renameStmts env live max = function
   | [] -> env, live, max, []
   | stmt :: stmts ->
-      let env, live, max, stmt = allocVarsStmt env live max stmt
-      let env, live, max, stmts = allocVarsStmts env live max stmts
+      let env, live, max, stmt = renameStmt env live max stmt
+      let env, live, max, stmts = renameStmts env live max stmts
       env, live, max, stmt :: stmts
 
-let allocVarsProgram stmts = allocVarsStmts Map.empty Map.empty Map.empty stmts
+let renameProgram stmts = renameStmts Map.empty Map.empty Map.empty stmts

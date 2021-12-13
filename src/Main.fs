@@ -23,7 +23,7 @@ let main argv =
     getInput argv
     >>= uncurry (P.parse program)
     >>= typeCheckProgram
-    <&> allocVarsProgram
+    <&> renameProgram
 
   match result with
   | Error e -> printfn $"Error: {e}"; 1
