@@ -13,20 +13,9 @@ let allocVars maxLive =
   |> List.map swap
   |> Map.ofList
 
-let arithInstr = function
-  | ArithOp.Add -> Add
-  | ArithOp.Sub -> Sub
-  | ArithOp.Mul -> Mul
-  | ArithOp.Div -> Div
-  | ArithOp.Mod -> Mod
-
-let compInstr = function
-  | CompOp.Eq -> Eq
-  | CompOp.Neq -> Neq
-  | CompOp.Lt -> Lt
-  | CompOp.Lte -> Lte
-  | CompOp.Gt -> Gt
-  | CompOp.Gte -> Gte
+let varList maxLive =
+  Map.toList maxLive
+  |> List.collect (fun (ty, max) -> List.replicate (max + 1) ty)
 
 let rec simplifyExpr env (T (t, e)) =
   match e with
@@ -52,15 +41,12 @@ let rec simplifyExpr env (T (t, e)) =
 
   | Subscript (a, i) -> simplifyExpr env a @ simplifyExpr env i @ [LoadIndex]
   | Expr.Not e -> simplifyExpr env e @ [Not]
-  | Negate e -> simplifyExpr env e @ [Neg]
+  | Expr.Negate e -> simplifyExpr env e @ [Negate]
 
-  | Append (a, b) when t = Text -> simplifyExpr env a @ simplifyExpr env b @ [AppendText]
-  | Append (a, b) -> simplifyExpr env a @ simplifyExpr env b @ [AppendArray]
-
+  | Expr.Append (a, b) -> simplifyExpr env a @ simplifyExpr env b @ [Append (t <> Text)]
   | Expr.Pow (a, b) -> simplifyExpr env a @ simplifyExpr env b @ [Pow]
-
-  | Arith (op, a, b) -> simplifyExpr env a @ simplifyExpr env b @ [arithInstr op]
-  | Comp (op, a, b) -> simplifyExpr env a @ simplifyExpr env b @ [compInstr op (t = Text)]
+  | Expr.Arith (op, a, b) -> simplifyExpr env a @ simplifyExpr env b @ [Arith op]
+  | Expr.Comp (op, a, b) -> simplifyExpr env a @ simplifyExpr env b @ [Comp (op, t = Text)]
 
   | Logic (And, a, b) -> simplifyExpr env a @ [If (simplifyExpr env b, [PushBool false])]
   | Logic (Or, a, b) -> simplifyExpr env a @ [If ([PushBool true], simplifyExpr env b)]
@@ -83,8 +69,8 @@ let rec simplifyStmt env stmt =
 
   | For (i, a, b, s) ->
       let idx = Map.find i env
-      let cond = [LoadVar idx] @ simplifyExpr env b @ [Lte false]
-      let body = simplifyStmts env s @ [LoadVar idx; PushInt 1; Add; SetVar idx]
+      let cond = [LoadVar idx] @ simplifyExpr env b @ [Comp (Lte, false)]
+      let body = simplifyStmts env s @ [LoadVar idx; PushInt 1; Arith Add; SetVar idx]
       simplifyExpr env a @ [SetVar idx; While (cond, body)]
 
 and simplifyStmts env stmts = List.collect (simplifyStmt env) stmts

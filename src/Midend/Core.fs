@@ -21,25 +21,13 @@ type Instr =
   | Write of Type
   | WriteLine
 
-  | Add
-  | Sub
-  | Mul
-  | Div
-  | Mod
-
-  | Pow
-  | AppendText
-  | AppendArray
-
-  | Eq of isText: bool
-  | Neq of isText: bool
-  | Lt of isText: bool
-  | Lte of isText: bool
-  | Gt of isText: bool
-  | Gte of isText: bool
-
   | Not
-  | Neg
+  | Negate
+
+  | Append of isArray: bool
+  | Pow
+  | Arith of ArithOp
+  | Comp of CompOp * isText: bool
 
   | If of Instr list * Instr list
   | While of Instr list * Instr list

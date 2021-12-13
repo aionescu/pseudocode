@@ -16,6 +16,7 @@
     <Compile Include="src/Frontend/TypeChecker.fs"/>
 
     <Compile Include="src/Midend/Core.fs"/>
+    <Compile Include="src/Midend/CoreTypeChecker.fs"/>
     <Compile Include="src/Midend/Renamer.fs"/>
     <Compile Include="src/Midend/Simplifier.fs"/>
 
