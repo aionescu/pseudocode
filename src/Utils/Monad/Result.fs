@@ -22,6 +22,11 @@ let (>>=) a f = f =<< a
 
 let join a = a >>= id
 
+let (<|>) a b =
+  match a with
+  | Ok _ -> a
+  | Error _ -> b ()
+
 let rec traverse f xs =
   match xs with
   | [] -> Ok []

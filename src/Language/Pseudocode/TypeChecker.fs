@@ -4,144 +4,210 @@ open Utils.Function
 open Utils.Monad.Result
 open Language.Pseudocode.Syntax
 
+let mustBeNumeric = function
+  | Int | Real -> Ok ()
+  | t -> Error $"Expected numeric type, found {showType t}"
+
+let mustBeAppendable = function
+  | Array _ | Text -> Ok ()
+  | t -> Error $"Only values of Text or array type can be appended, but found {showType t}"
+
+let mustNotBeArray reason = function
+  | Array _ -> Error $"Values of array types cannot be {reason}"
+  | _ -> Ok ()
+
 let lookupVar i env =
   Map.tryFind i env
-  |> explain ("Undeclared variable \"" + i + "\"")
+  |> explain $"Undeclared variable \"{i}\""
 
-let rec typeCheckExpr env expr =
-  match unU expr with
+let mustBe expected actual =
+  if actual = expected then
+    Ok ()
+  else
+    Error $"Expected type {showType expected}, but found {showType actual}"
+
+let rec mustBeLValue (U expr) =
+  match expr with
+  | Subscript (a, _) -> mustBeLValue a
+  | Var _ -> Ok ()
+  | _ -> Error "Expected lvalue"
+
+let rec typeCheckExpr env t (U expr) =
+  match expr with
+  | BoolLit b -> mustBe t Bool &> T (Bool, BoolLit b)
+  | IntLit i -> mustBe t Int &> T (Int, IntLit i)
+  | RealLit r -> mustBe t Real &> T (Real, RealLit r)
+  | TextLit t' -> mustBe t Text &> T (Text, TextLit t')
+
+  | ArrayLit es ->
+      match t with
+      | Array t ->
+          traverse (typeCheckExpr env t) es >>= fun ts ->
+          if List.forall (fun e -> ty e = t) ts then
+            Ok (T (Array t, ArrayLit ts))
+          else
+            Error "Mismatched types in array literal"
+      | _ -> Error $"Expected type {showType t}, but found array literal"
+
+  | Var i -> lookupVar i env >>= fun t' -> mustBe t t' &> T (t', Var i)
+
+  | Subscript (a, i) ->
+      typeCheckExpr env (Array t) a >>= fun a ->
+      typeCheckExpr env Int i <&> fun i ->
+      T (t, Subscript (a, i))
+
+  | Not e ->
+      mustBe t Bool *>
+      typeCheckExpr env Bool e <&> fun e ->
+      T (Bool, Not e)
+
+  | Negate e ->
+      mustBeNumeric t *>
+      typeCheckExpr env t e <&> fun e ->
+      T (t, Negate e)
+
+  | Append (a, b) ->
+      mustBeAppendable t *>
+      typeCheckExpr env t a >>= fun a ->
+      typeCheckExpr env t b <&> fun b ->
+      T (t, Append (a, b))
+
+  | Pow (a, b) ->
+      mustBe t Real *>
+      typeCheckExpr env Real a >>= fun a ->
+      typeCheckExpr env Real b <&> fun b ->
+      T (t, Pow (a, b))
+
+  | Arith (op, a, b) ->
+      mustBeNumeric t *>
+      typeCheckExpr env t a >>= fun a ->
+      typeCheckExpr env t b <&> fun b ->
+      T (t, Arith (op, a, b))
+
+  | Comp (op, a, b) ->
+      mustBe t Bool *>
+      typeInferExpr env a >>= fun a ->
+      mustNotBeArray "compared" (ty a) *>
+      typeCheckExpr env (ty a) b <&> fun b ->
+      T (Bool, Comp (op, a, b))
+
+  | Logic (op, a, b) ->
+      mustBe t Bool *>
+      typeCheckExpr env Bool a >>= fun a ->
+      typeCheckExpr env Bool b <&> fun b ->
+      T (Bool, Logic (op, a, b))
+
+and typeInferExpr env (U expr) =
+  match expr with
   | BoolLit b -> Ok <| T (Bool, BoolLit b)
   | IntLit i -> Ok <| T (Int, IntLit i)
   | RealLit r -> Ok <| T (Real, RealLit r)
   | TextLit t -> Ok <| T (Text, TextLit t)
+
+  | ArrayLit [] -> Error "Cannot infer the type of empty array literals; Please add a type annotation"
   | ArrayLit es ->
-      traverse (typeCheckExpr env) es >>= fun ts ->
-        match List.distinct (List.map ty ts) with
-        | [t] -> Ok <| T (Array t, ArrayLit ts)
-        | [] -> Error "Cannot infer the type of empty array literals"
-        | _ -> Error "Array literal has mismatched element types"
+      traverse (typeInferExpr env) es >>= function
+        | (T (t, _) :: ts) as es when List.forall (fun e -> ty e = t) ts ->
+            Ok <| T (Array t, ArrayLit es)
+        | _ -> Error "Mismatched types in array literal"
 
   | Subscript (a, i) ->
-      typeCheckExpr env a >>= fun a ->
+      typeInferExpr env a >>= fun a ->
         match ty a with
         | Array t ->
-            typeCheckExpr env i >>= fun i ->
-              match ty i with
-              | Int -> Ok <| T (t, Subscript (a, i))
-              | _ -> Error "Subscript index is not an Int"
-        | _ -> Error "Subscript base is not an array"
+            typeCheckExpr env Int i <&> fun i ->
+            T (t, Subscript (a, i))
+        | _ -> Error "Cannot subscript into non-array values"
 
   | Var i -> lookupVar i env <&> fun t -> T (t, Var i)
 
-  | UnaryOp (op, e) ->
-      typeCheckExpr env e >>= fun e ->
-        match (op, ty e) with
-        | (Not, Bool) -> Ok <| T (Bool, UnaryOp (Not, e))
-        | (Neg, Int) -> Ok <| T (Int, UnaryOp (Neg, e))
-        | (Neg, Real) -> Ok <| T (Real, UnaryOp (Neg, e))
-        | (_, _) -> Error "Invalid unary op"
+  | Not e ->
+      typeCheckExpr env Bool e <&> fun e ->
+      T (Bool, Not e)
 
-  | BinaryOp (a, op, b) ->
-      let numeric a = List.contains a [Int; Real]
-      let primitive = function
-        | Array _ -> false
-        | _ -> true
+  | Negate e ->
+      typeInferExpr env e >>= fun e ->
+      mustBeNumeric (ty e) &>
+      T (ty e, Negate e)
 
-      typeCheckExpr env a >>= fun a ->
-      typeCheckExpr env b >>= fun b ->
+  | Append (a, b) ->
+      typeInferExpr env a >>= fun a ->
+      let t = ty a
+      mustBeAppendable t *>
+      typeCheckExpr env t b <&> fun b ->
+      T (t, Append (a, b))
 
-      let te = BinaryOp (a, op, b)
+  | Pow (a, b) ->
+      typeCheckExpr env Real a >>= fun a ->
+      typeCheckExpr env Real b <&> fun b ->
+      T (Real, Pow (a, b))
 
-      match op, ty a, ty b with
-      | ArithOp, a, b when a = b && numeric a -> Ok <| T (a, te)
-      | Pow, Real, Real -> Ok <| T (Real, te)
-      | Append, Text, Text -> Ok <| T (Text, te)
-      | Append, Array a, Array b when a = b -> Ok <| T (Array a, te)
-      | CompOp, a, b when a = b && primitive a -> Ok <| T (Bool, te)
-      | LogicOp, Bool, Bool -> Ok <| T (Bool, te)
-      | _ -> Error "Invalid binary op"
+  | Arith (op, a, b) ->
+      typeInferExpr env a >>= fun a ->
+      let t = ty a
+      mustBeNumeric t *>
+      typeCheckExpr env t b <&> fun b ->
+      T (t, Arith (op, a, b))
 
-let mustBe a b =
-  if a = b then
-    Ok ()
-  else
-    Error $"Expected {a}, but found {b}"
+  | Comp (op, a, b) ->
+      typeInferExpr env a >>= fun a ->
+      let t = ty a
+      mustNotBeArray "compared" t *>
+      typeCheckExpr env t b <&> fun b ->
+      T (Bool, Comp (op, a, b))
 
-let rec typeCheckLValue env expr =
-  match unU expr with
-  | Var i -> lookupVar i env <&> fun t -> T (t, Var i)
-  | Subscript (a, i) ->
-      typeCheckLValue env a >>= fun a ->
-        match ty a with
-        | Array t ->
-            typeCheckExpr env i >>= fun i ->
-              match ty i with
-              | Int -> Ok <| T (t, Subscript (a, i))
-              | _ -> Error "Subscript index is not an Int"
-        | _ -> Error "Subscript base is not an array"
-  | _ -> Error "Expected lvalue"
+  | Logic (op, a, b) ->
+      typeCheckExpr env Bool a >>= fun a ->
+      typeCheckExpr env Bool b <&> fun b ->
+      T (Bool, Logic (op, a, b))
 
 let rec typeCheckStmt env stmt =
   match stmt with
-  | Let (i, t, e) ->
-      typeCheckExpr env e >>= fun e ->
-      let te = ty e
-      let tc = Option.fold (fun _ -> mustBe te) (Ok ()) t
-
-      if Map.containsKey i env then
-        Error "Variable already declared"
-      else
-        tc &> (Map.add i te env, Let (i, Some te, e))
+  | Let (i, _, _) when Map.containsKey i env -> Error $"Variable \"{i}\" already declared"
+  | Let (i, Some t, e) ->
+      typeCheckExpr env t e <&> fun e ->
+      (Map.add i t env, Let (i, Some t, e))
+  | Let (i, None, e) ->
+      typeInferExpr env e <&> fun e ->
+      let t = ty e
+      (Map.add i t env, Let (i, Some t, e))
 
   | Assign (lhs, e) ->
-      typeCheckLValue env lhs >>= fun lhs ->
-      typeCheckExpr env e >>= fun e ->
-      mustBe (ty lhs) (ty e) &> (env, Assign (lhs, e))
+      mustBeLValue lhs *>
+      typeInferExpr env lhs >>= fun lhs ->
+      let t = ty lhs
+      typeCheckExpr env t e <&> fun e ->
+      (env, Assign (lhs, e))
 
   | Read e ->
-      typeCheckLValue env e >>= fun e ->
-      match ty e with
-      | Array _ -> Error "Cannot read array values"
-      | _ -> Ok (env, Read e)
+      mustBeLValue e *>
+      typeInferExpr env e >>= fun e ->
+      mustNotBeArray "read" (ty e) &>
+      (env, Read e)
 
-  | Write es -> traverse (typeCheckExpr env) es <&> fun es -> (env, Write es)
+  | Write es -> traverse (typeInferExpr env) es <&> fun es -> (env, Write es)
 
   | If (c, then', else') ->
-      typeCheckExpr env c >>= fun c ->
-      match ty c with
-      | Bool ->
-          typeCheckStmts env then' >>= fun (_, then') ->
-          typeCheckStmts env else' >>= fun (_, else') ->
-          Ok (env, If (c, then', else'))
-      | _ -> Error "If condition is not a boolean"
+      typeCheckExpr env Bool c >>= fun c ->
+      typeCheckStmts env then' >>= fun (_, then') ->
+      typeCheckStmts env else' >>= fun (_, else') ->
+      Ok (env, If (c, then', else'))
 
   | While (c, s) ->
-      typeCheckExpr env c >>= fun c ->
+      typeCheckExpr env Bool c >>= fun c ->
+      typeCheckStmts env s <&> fun (_, s) -> (env, While (c, s))
 
-      match ty c with
-      | Bool -> typeCheckStmts env s <&> fun (_, s) -> (env, While (c, s))
-      | _ -> Error "While condition is not a boolean"
-
+  | For (i, _, _, _) when Map.containsKey i env -> Error "For loop counter must be a new variable"
   | For (i, a, b, s) ->
-      if Map.containsKey i env then
-        Error "For loop counter must be a new variable"
-      else
-        typeCheckExpr env a >>= fun a ->
-        mustBe (ty a) Int *>
+      typeCheckExpr env Int a >>= fun a ->
+      typeCheckExpr env Int b >>= fun b ->
+      typeCheckStmts (Map.add i Int env) s <&> fun (_, s) ->
+      (env, For (i, a, b, s))
 
-        typeCheckExpr env b >>= fun b ->
-        mustBe (ty b) Int *>
-
-        let env = Map.add i Int env
-        typeCheckStmts env s <&> fun (_, s) -> (env, For (i, a, b, s))
-
-and typeCheckStmts env : Stmt<UExpr> list -> Result<Map<Id, Type> * Stmt<TExpr> list, string> = function
+and typeCheckStmts env = function
   | [] -> Ok (env, [])
   | stmt :: stmts ->
       typeCheckStmt env stmt >>= fun (env, stmt) ->
       typeCheckStmts env stmts <&> fun (env, stmts) -> (env, stmt :: stmts)
-
-and typeCheckStmts' env stmts =
-  typeCheckStmts env stmts <&> fun (_, stmts) -> (env, stmts)
 
 let typeCheckProgram stmts = typeCheckStmts Map.empty stmts <&> snd

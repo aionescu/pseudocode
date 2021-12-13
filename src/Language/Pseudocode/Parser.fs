@@ -100,20 +100,24 @@ let opp = OperatorPrecedenceParser ()
 exprRef.Value <- opp.ExpressionParser
 opp.TermParser <- withSubscript exprSimple
 
-opp.AddOperator(PrefixOperator("-", ws, 1, true, curry UnaryOp Neg >> U))
-opp.AddOperator(PrefixOperator("not", ws, 1, true, curry UnaryOp Not >> U))
+opp.AddOperator(PrefixOperator("-", ws, 1, true, Negate >> U))
+opp.AddOperator(PrefixOperator("not", ws, 1, true, Not >> U))
 
 let ops =
-  [ ["and", And; "or", Or], Associativity.Right
-    ["==", Eq; "!=", Neq; "<", Lt; "<=", Lte; ">", Gt; ">=", Gte], Associativity.None
-    ["+", Add; "-", Sub], Associativity.Left
-    ["*", Mul; "/", Div; "%", Mod], Associativity.Left
-    ["^", Pow], Associativity.Right
+  let arith = curry3 Arith
+  let comp = curry3 Comp
+  let logic = curry3 Logic
+
+  [ ["and", logic And; "or", logic Or], Associativity.Right
+    ["==", comp Eq; "!=", comp Neq; "<", comp Lt; "<=", comp Lte; ">", comp Gt; ">=", comp Gte], Associativity.None
+    ["+", arith Add; "-", arith Sub], Associativity.Left
+    ["*", arith Mul; "/", arith Div; "%", arith Mod], Associativity.Left
+    ["^", curry Pow; "<>", curry Append], Associativity.Right
   ]
 
 for prec, (ops, assoc) in List.indexed ops do
   for (opStr, op) in ops do
-    opp.AddOperator(InfixOperator(opStr, ws, prec + 1, assoc, fun a b -> U <| BinaryOp (a, op, b)))
+    opp.AddOperator(InfixOperator(opStr, ws, prec + 1, assoc, op >.. U))
 
 // Types
 

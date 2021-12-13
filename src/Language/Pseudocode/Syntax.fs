@@ -9,23 +9,31 @@ type Type =
   | Bool
   | Array of Type
 
-type UnaryOp =
-  | Not
-  | Neg
+let rec showType = function
+  | Int -> "Integer"
+  | Real -> "Real"
+  | Text -> "Text"
+  | Bool -> "Boolean"
+  | Array t -> "[" + showType t + "]"
 
-type BinaryOp =
-  | Add | Sub | Mul | Div | Mod
-  | Pow
-  | Append
-  | Eq | Neq | Lt | Lte | Gt | Gte
-  | And | Or
+type ArithOp =
+  | Add
+  | Sub
+  | Mul
+  | Div
+  | Mod
 
-let (|ArithOp|Pow|Append|CompOp|LogicOp|) = function
-  | Add | Sub | Mul | Div | Mod -> ArithOp
-  | Pow -> Pow
-  | Append -> Append
-  | Eq | Neq | Lt | Lte | Gt | Gte -> CompOp
-  | And | Or -> LogicOp
+type CompOp =
+  | Eq
+  | Neq
+  | Lt
+  | Lte
+  | Gt
+  | Gte
+
+type LogicOp =
+  | And
+  | Or
 
 type 'e Expr =
   | BoolLit of bool
@@ -35,8 +43,13 @@ type 'e Expr =
   | ArrayLit of 'e list
   | Var of Id
   | Subscript of 'e * 'e
-  | UnaryOp of UnaryOp * 'e
-  | BinaryOp of 'e * BinaryOp * 'e
+  | Not of 'e
+  | Negate of 'e
+  | Append of 'e * 'e
+  | Pow of 'e * 'e
+  | Arith of ArithOp * 'e * 'e
+  | Comp of CompOp * 'e * 'e
+  | Logic of LogicOp * 'e * 'e
 
 type UExpr = U of UExpr Expr
 type TExpr = T of Type * TExpr Expr
