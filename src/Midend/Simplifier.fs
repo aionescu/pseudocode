@@ -36,9 +36,14 @@ let rec simplifyExpr env (T (t, e)) =
   | TextLit t -> [PushText t]
 
   | ArrayLit es ->
+      let t =
+        match t with
+        | Array t -> t
+        | _ -> panic ()
+
       let setElem i e = [Dup; PushInt i] @ simplifyExpr env e @ [SetIndex]
       let l = List.length es
-      [PushInt l; NewArr (ty es[0])] @ List.collect (uncurry setElem) (List.indexed es)
+      [PushInt l; NewArr t] @ List.collect (uncurry setElem) (List.indexed es)
 
   | Var i -> [LoadVar <| Map.find i env]
   | Subscript (a, i) -> simplifyExpr env a @ simplifyExpr env i @ [LoadIndex]
