@@ -43,7 +43,8 @@ type Expr<'id, 'e> =
   | TextLit of string
   | ArrayLit of 'e list
   | Var of 'id
-  | Read of 'e option
+  | Read of 'e
+  | Length of 'e
   | Subscript of 'e * 'e
   | Not of 'e
   | Negate of 'e

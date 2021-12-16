@@ -68,8 +68,8 @@ let arrayLit =
   <&> (ArrayLit >> U)
 
 let reserved =
-  [ "let"; "end"; "if"; "then"; "else"; "while"; "do"; "for"; "in"; "to"; "and"; "or"; "not"; "read"; "write"
-    "Integer"; "Real"; "Text"; "Boolean";
+  [ "let"; "end"; "if"; "then"; "else"; "while"; "do"; "for"; "in"; "to"; "and"; "or"; "not"; "read"; "write"; "length"
+    "Integer"; "Real"; "Text"; "Boolean"
     "True"; "False"
   ]
 
@@ -85,10 +85,8 @@ let ident =
 
 let var = ident <&> (Var >> U)
 
-let read = pstring "read" *> ws *> opt expr <&> (Read >> U)
-
 let parensExpr = between (pchar '(' <* ws) (pchar ')' <* ws) expr
-let exprSimple = choice' [boolLit; numLit; textLit; arrayLit; var; read; parensExpr] <* ws
+let exprSimple = choice' [boolLit; numLit; textLit; arrayLit; var; parensExpr] <* ws
 
 let withSubscript e =
   let subscript = between (pchar '[' <* ws) (pchar ']' <* ws) expr
@@ -101,9 +99,6 @@ let ws' = ws *> notFollowedByL (pchar '-') "minus"
 let opp = OperatorPrecedenceParser ()
 opp.TermParser <- withSubscript exprSimple
 
-opp.AddOperator(PrefixOperator("-", ws', 1, true, Negate >> U))
-opp.AddOperator(PrefixOperator("not", ws', 1, true, Not >> U))
-
 let ops =
   let arith = curry3 Arith
   let comp = curry3 Comp
@@ -115,6 +110,13 @@ let ops =
     ["*", arith Mul; "/", arith Div; "%", arith Mod], Associativity.Left
     ["^", curry Pow; "<>", curry Append], Associativity.Right
   ]
+
+let infixPrec = List.length ops + 1
+
+opp.AddOperator(PrefixOperator("-", ws', infixPrec, true, Negate >> U))
+opp.AddOperator(PrefixOperator("not", ws', infixPrec, true, Not >> U))
+opp.AddOperator(PrefixOperator("read", ws', infixPrec, true, Read >> U))
+opp.AddOperator(PrefixOperator("length", ws', infixPrec, true, Length >> U))
 
 for prec, (ops, assoc) in List.indexed ops do
   for (opStr, op) in ops do
@@ -160,20 +162,20 @@ let end' = pstring "end"
 let if' =
   curry3 If
   <!> (pstring "if" *> ws *> expr)
-  <*> (pstring "then" *> stmtSep *> stmts)
-  <*> ((pstring "else" *> stmtSep *> stmts) <|>% [] <* end')
+  <*> (pstring "then" *> ws *> stmtSep *> stmts)
+  <*> ((pstring "else" *> ws *> stmtSep *> stmts) <|>% [] <* end')
 
 let while' =
   curry While
   <!> (pstring "while" *> ws *> expr)
-  <*> (pstring "do" *> stmtSep *> stmts <* end')
+  <*> (pstring "do" *> ws *> stmtSep *> stmts <* end')
 
 let for' =
   curry4 For
   <!> (pstring "for" *> ws *> ident <* ws)
   <*> (equals *> expr)
   <*> (pstring "to" *> ws *> expr)
-  <*> (pstring "do" *> stmtSep *> stmts <* end')
+  <*> (pstring "do" *> ws *> stmtSep *> stmts <* end')
 
 stmtRef.Value <-
   choice' [for';  while'; if'; write; assign; let']

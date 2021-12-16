@@ -21,6 +21,8 @@ type Instr =
   | Write of Type
   | WriteLine
 
+  | Length of isText: bool
+
   | Not
   | Negate
 

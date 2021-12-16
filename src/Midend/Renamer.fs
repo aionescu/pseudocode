@@ -16,7 +16,8 @@ let rec renameExpr env = mapEx <| fun expr ->
     | TextLit t -> TextLit t
     | ArrayLit es -> ArrayLit <| List.map (renameExpr env) es
     | Var i -> Var <| Map.find i env
-    | Read e -> Read <| Option.map (renameExpr env) e
+    | Read e -> Read <| renameExpr env e
+    | Length e -> Length <| renameExpr env e
     | Subscript (a, i) -> Subscript (renameExpr env a, renameExpr env i)
     | Not e -> Not <| renameExpr env e
     | Negate e -> Negate <| renameExpr env e

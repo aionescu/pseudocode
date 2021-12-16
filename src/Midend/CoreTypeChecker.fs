@@ -29,6 +29,10 @@ let rec typeCheckInstr env stack instr =
   | Read t, _ -> mustNotBeArray "read" t &> t :: stack
   | Write t, t' :: stack when t = t' -> mustNotBeArray "written in Core" t &>  stack
   | WriteLine, _ -> Ok stack
+
+  | Length true, Text :: stack  -> Ok (Int :: stack)
+  | Length false, Array _ :: stack -> Ok (Int :: stack)
+
   | Not, Bool :: stack -> Ok (Bool :: stack)
 
   | Negate, Int :: stack -> Ok (Int :: stack)
@@ -52,6 +56,7 @@ let rec typeCheckInstr env stack instr =
       typeCheckInstrs env [] c >>= function
         | [Bool] -> typeCheckEmpty env "While body" s &> stack
         | _ -> Error "Invalid While condition"
+
   | _ -> Error "Invalid Core instruction"
 
 and typeCheckInstrs env stack = function

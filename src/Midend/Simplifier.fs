@@ -25,8 +25,8 @@ let rec simplifyExpr (T (t, e)) =
 
   | Var i -> [LoadVar i]
 
-  | Expr.Read None -> [Read t]
-  | Expr.Read (Some e) -> simplifyExpr e @ [Write Text; Read t]
+  | Expr.Read e -> simplifyExpr e @ [Write Text; Read t]
+  | Expr.Length e -> simplifyExpr e @ [Length (t = Text)]
 
   | Subscript (a, i) -> simplifyExpr a @ simplifyExpr i @ [LoadIndex t]
   | Expr.Not e -> simplifyExpr e @ [Not]

@@ -47,10 +47,17 @@ let rec typeCheckExpr env t (U expr) =
 
   | Var i -> lookupVar i env >>= fun t' -> mustBe t t' &> T (t', Var i)
 
-  | Read None -> mustNotBeArray "read" t &> T (t, Read None)
-  | Read (Some e) ->
+  | Read e ->
       typeCheckExpr env Text e >>= fun e ->
-      mustNotBeArray "read" t &> T (t, Read <| Some e)
+      mustNotBeArray "read" t &> T (t, Read e)
+
+  | Length e ->
+      mustBe t Int *>
+      typeInferExpr env e >>= fun e ->
+
+      match ty e with
+      | Text | Array _ -> Ok <| T (Int, Length e)
+      | _ -> Error "Can only take the length of arrays and strings"
 
   | Subscript (a, i) ->
       typeCheckExpr env (Array t) a >>= fun a ->
@@ -116,13 +123,20 @@ and typeInferExpr env (U expr) =
 
   | Read _ -> Error "Can't infer the type of read-expressions; Please add a type annotation"
 
+  | Length e ->
+      typeInferExpr env e >>= fun e ->
+
+      match ty e with
+      | Text | Array _ -> Ok <| T (Int, Length e)
+      | _ -> Error "Can only take the length of arrays and strings"
+
   | Subscript (a, i) ->
       typeInferExpr env a >>= fun a ->
-        match ty a with
-        | Array t ->
-            typeCheckExpr env Int i <&> fun i ->
-            T (t, Subscript (a, i))
-        | _ -> Error "Cannot subscript into non-array values"
+      match ty a with
+      | Array t ->
+          typeCheckExpr env Int i <&> fun i ->
+          T (t, Subscript (a, i))
+      | _ -> Error "Cannot subscript into non-array values"
 
   | Not e ->
       typeCheckExpr env Bool e <&> fun e ->

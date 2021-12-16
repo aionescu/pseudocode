@@ -29,6 +29,7 @@ let stringCompare = typeof<string>.GetMethod("Compare", [|typeof<string>; typeof
 
 let stringEq = typeof<string>.GetMethod("op_Equality", [|typeof<string>; typeof<string>|])
 let stringNeq = typeof<string>.GetMethod("op_Inequality", [|typeof<string>; typeof<string>|])
+let stringLength = typeof<string>.GetMethod("get_Length", [||])
 
 let rec ilType = function
   | Int -> typeof<int>
@@ -82,6 +83,11 @@ let rec emitInstr (il: IL) =
       | Array _ -> panic ()
 
   | WriteLine -> il.Emit(OpCodes.Call, consoleWriteLine)
+
+  | Length true -> il.Emit(OpCodes.Call, stringLength)
+  | Length false ->
+      il.Emit(OpCodes.Ldlen)
+      il.Emit(OpCodes.Conv_I4)
 
   | Not ->
       il.Emit(OpCodes.Ldc_I4_0)
@@ -176,5 +182,7 @@ let compileAndRun vars instrs =
   let ty = ty.CreateType()
   let mtd = ty.GetMethod("Main", BindingFlags.NonPublic ||| BindingFlags.Static)
 
-  mtd.Invoke(null, Array.empty)
-  |> ignore
+  try ignore <| mtd.Invoke(null, Array.empty)
+  with :? TargetInvocationException as e ->
+    printfn "An exception was thrown:"
+    printfn "%A" e.InnerException
