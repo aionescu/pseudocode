@@ -55,15 +55,22 @@ let rec simplifyStmt stmt =
 
   | Stmt.If (c, t, e) -> simplifyExpr c @ [If (simplifyStmts t, simplifyStmts e)]
   | Stmt.While (c, s) -> [While (simplifyExpr c, simplifyStmts s)]
+  | Stmt.DoWhile (s, c) -> [DoWhile (simplifyStmts s, simplifyExpr c)]
 
-  | Stmt.For (i, a, b, s) ->
-      let cond = [LoadVar i] @ simplifyExpr b @ [Comp (Lte, false)]
-      let update = [LoadVar i; PushInt 1; Arith Add; SetVar i]
+  | Stmt.For (i, a, down, b, s) ->
+      let comp, arith =
+        if down then
+          Gte, Sub
+        else
+          Lte, Add
+
+      let cond = [LoadVar i] @ simplifyExpr b @ [Comp (comp, false)]
+      let update = [LoadVar i; PushInt 1; Arith arith; SetVar i]
       simplifyExpr a @ [SetVar i; For (cond, simplifyStmts s, update)]
 
   | Stmt.Break -> [Break]
   | Stmt.Continue -> [Continue]
 
-and simplifyStmts stmts = List.collect simplifyStmt stmts
+and simplifyStmts = List.collect simplifyStmt
 
 let simplifyProgram = simplifyStmts

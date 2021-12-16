@@ -6,6 +6,6 @@ for i = 0 to length a - 1 do
   a[i] = a[i] * a[i]
 end
 
-for i = 0 to length a - 1 do
+for i = length a - 1 down to 0 do
   write "a[", i, "] = ", a[i]
 end

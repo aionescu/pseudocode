@@ -57,6 +57,11 @@ let rec typeCheckInstr env inLoop stack instr =
         | [Bool] -> typeCheckEmpty env true "While body" s &> stack
         | _ -> Error "Invalid While condition"
 
+  | DoWhile (s, c), _ ->
+      typeCheckInstrs env inLoop [] c >>= function
+        | [Bool] -> typeCheckEmpty env true "While body" s &> stack
+        | _ -> Error "Invalid DoWhile condition"
+
   | For (c, s, u), _ ->
       typeCheckInstrs env inLoop [] c >>= function
         | [Bool] ->

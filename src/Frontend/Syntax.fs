@@ -66,7 +66,8 @@ type Stmt<'id, 'e> =
   | Write of 'e list
   | If of 'e * Stmt<'id, 'e> list * Stmt<'id, 'e> list
   | While of 'e * Stmt<'id, 'e> list
-  | For of 'id * 'e * 'e * Stmt<'id, 'e> list
+  | DoWhile of Stmt<'id, 'e> list * 'e
+  | For of 'id * 'e * bool * 'e * Stmt<'id, 'e> list
   | Break
   | Continue
 

@@ -68,7 +68,7 @@ let arrayLit =
   <&> (ArrayLit >> U)
 
 let reserved =
-  [ "let"; "end"; "if"; "then"; "else"; "while"; "do"; "for"; "in"
+  [ "let"; "end"; "if"; "then"; "else"; "while"; "do"; "for"; "down"
     "to"; "and"; "or"; "not"; "read"; "write"; "length"; "break"; "continue"
     "Bool"; "Int"; "Float"; "String"
     "True"; "False"
@@ -189,14 +189,20 @@ let while' =
   <!> (pstring "while" *> ws *> expr)
   <*> (pstring "do" *> ws *> stmtSep *> stmts <* end')
 
+let doWhile =
+  curry DoWhile
+  <!> (pstring "do" *> ws *> stmtSep *> stmts)
+  <*> (pstring "while" *> ws *> expr)
+
 let for' =
-  curry4 For
+  curry5 For
   <!> (pstring "for" *> ws *> ident <* ws)
   <*> (equals *> expr)
+  <*> ((pstring "down" *> ws &> true) <|>% false)
   <*> (pstring "to" *> ws *> expr)
   <*> (pstring "do" *> ws *> stmtSep *> stmts <* end')
 
 stmtRef.Value <-
-  choice' [for';  while'; if'; write; assign; let'; break'; continue']
+  choice' [doWhile; for';  while'; if'; write; assign; let'; break'; continue']
 
 let program: Program Parser = wsMulti *> stmts <* eof

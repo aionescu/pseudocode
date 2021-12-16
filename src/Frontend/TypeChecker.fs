@@ -207,14 +207,20 @@ let rec typeCheckStmt env inLoop stmt =
 
   | While (c, s) ->
       typeCheckExpr env Bool c >>= fun c ->
-      typeCheckStmts env true s <&> fun (_, s) -> (env, While (c, s))
+      typeCheckStmts env true s <&> fun (_, s) ->
+      (env, While (c, s))
 
-  | For (i, _, _, _) when Map.containsKey i env -> Error "For loop counter must be a new variable"
-  | For (i, a, b, s) ->
+  | DoWhile (s, c) ->
+      typeCheckStmts env true s >>= fun (env', s) ->
+      typeCheckExpr env' Bool c <&> fun c ->
+      (env, DoWhile (s, c))
+
+  | For (i, _, _, _, _) when Map.containsKey i env -> Error "For loop counter must be a new variable"
+  | For (i, a, down, b, s) ->
       typeCheckExpr env Int a >>= fun a ->
       typeCheckExpr env Int b >>= fun b ->
       typeCheckStmts (Map.add i Int env) true s <&> fun (_, s) ->
-      (env, For (i, a, b, s))
+      (env, For (i, a, down, b, s))
 
   | Break when inLoop -> Ok (env, Break)
   | Break -> Error "Break can only be used inside a loop."

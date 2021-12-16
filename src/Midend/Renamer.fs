@@ -88,9 +88,16 @@ let rec renameStmt stmt =
       scoped (traverse renameStmt s) <&> fun s ->
       While (renameExpr env c, s)
 
-  | For (i, a, b, s) ->
+  | DoWhile (s, c) ->
+      scoped (
+        traverse renameStmt s >>= fun s ->
+        gets (fun s -> s.env) <&> fun env ->
+        DoWhile (s, renameExpr env c)
+      )
+
+  | For (i, a, down, b, s) ->
       scoped (pair <!> allocVar Int i <*> traverse renameStmt s) <&> fun (i, s) ->
-      For (i, renameExpr env a, renameExpr env b, s)
+      For (i, renameExpr env a, down, renameExpr env b, s)
 
   | Break -> pure' Break
   | Continue -> pure' Continue

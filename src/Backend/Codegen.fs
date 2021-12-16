@@ -169,6 +169,16 @@ let rec emitInstr (il: IL) breakLbl contLbl =
       il.Emit(OpCodes.Br, loopLbl)
       il.MarkLabel(doneLbl)
 
+  | DoWhile (s, c) ->
+      let loopLbl = il.DefineLabel()
+      let doneLbl = il.DefineLabel()
+
+      il.MarkLabel(loopLbl)
+      List.iter (emitInstr il doneLbl loopLbl) s
+      List.iter (emitInstr il breakLbl contLbl) c
+      il.Emit(OpCodes.Brtrue, loopLbl)
+      il.MarkLabel(doneLbl)
+
   | For (c, s, u) ->
       let loopLbl = il.DefineLabel()
       let updateLbl = il.DefineLabel()

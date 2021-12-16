@@ -33,6 +33,7 @@ type Instr =
 
   | If of Instr list * Instr list
   | While of Instr list * Instr list
+  | DoWhile of Instr list * Instr list
   | For of Instr list * Instr list * Instr list
 
   | Break
