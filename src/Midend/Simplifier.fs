@@ -56,10 +56,13 @@ let rec simplifyStmt stmt =
   | Stmt.If (c, t, e) -> simplifyExpr c @ [If (simplifyStmts t, simplifyStmts e)]
   | Stmt.While (c, s) -> [While (simplifyExpr c, simplifyStmts s)]
 
-  | For (i, a, b, s) ->
+  | Stmt.For (i, a, b, s) ->
       let cond = [LoadVar i] @ simplifyExpr b @ [Comp (Lte, false)]
-      let body = simplifyStmts s @ [LoadVar i; PushInt 1; Arith Add; SetVar i]
-      simplifyExpr a @ [SetVar i; While (cond, body)]
+      let update = [LoadVar i; PushInt 1; Arith Add; SetVar i]
+      simplifyExpr a @ [SetVar i; For (cond, simplifyStmts s, update)]
+
+  | Stmt.Break -> [Break]
+  | Stmt.Continue -> [Continue]
 
 and simplifyStmts stmts = List.collect simplifyStmt stmts
 

@@ -12,6 +12,8 @@ let unsupported () = failwith "Instruction is not yet supported"
 
 type IL = ILGenerator
 
+let defaultLbl = Unchecked.defaultof<_>
+
 let consoleReadLine = typeof<Console>.GetMethod("ReadLine", [||])
 let intParse = typeof<int>.GetMethod("Parse", [|typeof<string>|])
 let floatParse = typeof<float>.GetMethod("Parse", [|typeof<string>|])
@@ -40,7 +42,7 @@ let rec ilType = function
 
 let allocVars (il: IL) = List.iter (fun v -> il.DeclareLocal(ilType v) |> ignore)
 
-let rec emitInstr (il: IL) =
+let rec emitInstr (il: IL) breakLbl contLbl =
   function
   | PushBool b -> il.Emit(if b then OpCodes.Ldc_I4_1 else OpCodes.Ldc_I4_0)
   | PushInt i -> il.Emit(OpCodes.Ldc_I4, i)
@@ -147,11 +149,11 @@ let rec emitInstr (il: IL) =
       let doneLbl = il.DefineLabel()
 
       il.Emit(OpCodes.Brfalse, elseLbl)
-      List.iter (emitInstr il) t
+      List.iter (emitInstr il breakLbl contLbl) t
       il.Emit(OpCodes.Br, doneLbl)
 
       il.MarkLabel(elseLbl)
-      List.iter (emitInstr il) f
+      List.iter (emitInstr il breakLbl contLbl) f
       il.MarkLabel(doneLbl)
 
   | While (c, s) ->
@@ -159,13 +161,33 @@ let rec emitInstr (il: IL) =
       let doneLbl = il.DefineLabel()
 
       il.MarkLabel(loopLbl)
-      List.iter (emitInstr il) c
+      List.iter (emitInstr il breakLbl contLbl) c
 
       il.Emit(OpCodes.Brfalse, doneLbl)
-      List.iter (emitInstr il) s
+      List.iter (emitInstr il doneLbl loopLbl) s
 
       il.Emit(OpCodes.Br, loopLbl)
       il.MarkLabel(doneLbl)
+
+  | For (c, s, u) ->
+      let loopLbl = il.DefineLabel()
+      let updateLbl = il.DefineLabel()
+      let doneLbl = il.DefineLabel()
+
+      il.MarkLabel(loopLbl)
+      List.iter (emitInstr il breakLbl contLbl) c
+
+      il.Emit(OpCodes.Brfalse, doneLbl)
+      List.iter (emitInstr il doneLbl updateLbl) s
+
+      il.MarkLabel(updateLbl)
+      List.iter (emitInstr il breakLbl contLbl) u
+
+      il.Emit(OpCodes.Br, loopLbl)
+      il.MarkLabel(doneLbl)
+
+  | Break -> il.Emit(OpCodes.Br, breakLbl)
+  | Continue -> il.Emit(OpCodes.Br, contLbl)
 
 let compileAndRun vars instrs =
   let asm = AssemblyBuilder.DefineDynamicAssembly(AssemblyName("Pseudocode"), AssemblyBuilderAccess.Run)
@@ -176,7 +198,7 @@ let compileAndRun vars instrs =
   let il = mtd.GetILGenerator()
 
   allocVars il vars
-  List.iter (emitInstr il) instrs
+  List.iter (emitInstr il defaultLbl defaultLbl) instrs
   il.Emit(OpCodes.Ret)
 
   let ty = ty.CreateType()

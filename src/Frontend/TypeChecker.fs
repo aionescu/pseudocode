@@ -176,7 +176,7 @@ and typeInferExpr env (U expr) =
       typeCheckExpr env Bool b <&> fun b ->
       T (Bool, Logic (op, a, b))
 
-let rec typeCheckStmt env stmt =
+let rec typeCheckStmt env inLoop stmt =
   match stmt with
   | Let (i, _, _) when Map.containsKey i env -> Error $"Variable \"{i}\" already declared"
   | Let (i, Some t, e) ->
@@ -201,25 +201,31 @@ let rec typeCheckStmt env stmt =
 
   | If (c, then', else') ->
       typeCheckExpr env Bool c >>= fun c ->
-      typeCheckStmts env then' >>= fun (_, then') ->
-      typeCheckStmts env else' >>= fun (_, else') ->
+      typeCheckStmts env inLoop then' >>= fun (_, then') ->
+      typeCheckStmts env inLoop else' >>= fun (_, else') ->
       Ok (env, If (c, then', else'))
 
   | While (c, s) ->
       typeCheckExpr env Bool c >>= fun c ->
-      typeCheckStmts env s <&> fun (_, s) -> (env, While (c, s))
+      typeCheckStmts env true s <&> fun (_, s) -> (env, While (c, s))
 
   | For (i, _, _, _) when Map.containsKey i env -> Error "For loop counter must be a new variable"
   | For (i, a, b, s) ->
       typeCheckExpr env Int a >>= fun a ->
       typeCheckExpr env Int b >>= fun b ->
-      typeCheckStmts (Map.add i Int env) s <&> fun (_, s) ->
+      typeCheckStmts (Map.add i Int env) true s <&> fun (_, s) ->
       (env, For (i, a, b, s))
 
-and typeCheckStmts env = function
+  | Break when inLoop -> Ok (env, Break)
+  | Break -> Error "Break can only be used inside a loop."
+
+  | Continue when inLoop -> Ok (env, Continue)
+  | Continue -> Error "Continue can only be used inside a loop."
+
+and typeCheckStmts env inLoop = function
   | [] -> Ok (env, [])
   | stmt :: stmts ->
-      typeCheckStmt env stmt >>= fun (env, stmt) ->
-      typeCheckStmts env stmts <&> fun (env, stmts) -> (env, stmt :: stmts)
+      typeCheckStmt env inLoop stmt >>= fun (env, stmt) ->
+      typeCheckStmts env inLoop stmts <&> fun (env, stmts) -> (env, stmt :: stmts)
 
-let typeCheckProgram stmts = typeCheckStmts Map.empty stmts <&> snd
+let typeCheckProgram stmts = typeCheckStmts Map.empty false stmts <&> snd

@@ -10,7 +10,7 @@ let lookupVar v env =
   List.tryItem v env
   |> explain $"Variable \"{v}\" not allocated"
 
-let rec typeCheckInstr env stack instr =
+let rec typeCheckInstr env inLoop stack instr =
   match instr, stack with
   | PushBool _, _ -> Ok (Bool :: stack)
   | PushInt _, _ -> Ok (Int :: stack)
@@ -48,24 +48,34 @@ let rec typeCheckInstr env stack instr =
   | Comp (_, false), t :: t' :: stack when t = t' -> mustNotBeArray "compared" t &> Bool :: stack
 
   | If (t, f), Bool :: stack ->
-      typeCheckEmpty env "True branch" t *>
-      typeCheckEmpty env "False branch" f &>
+      typeCheckEmpty env inLoop "True branch" t *>
+      typeCheckEmpty env inLoop "False branch" f &>
       stack
 
   | While (c, s), _ ->
-      typeCheckInstrs env [] c >>= function
-        | [Bool] -> typeCheckEmpty env "While body" s &> stack
+      typeCheckInstrs env inLoop [] c >>= function
+        | [Bool] -> typeCheckEmpty env true "While body" s &> stack
         | _ -> Error "Invalid While condition"
+
+  | For (c, s, u), _ ->
+      typeCheckInstrs env inLoop [] c >>= function
+        | [Bool] ->
+            typeCheckEmpty env true "For body" s *>
+            typeCheckEmpty env true "For update block" u
+            &> stack
+        | _ -> Error "Invalid For condition"
+
+  | (Break | Continue), [] when inLoop -> Ok []
 
   | _ -> Error "Invalid Core instruction"
 
-and typeCheckInstrs env stack = function
+and typeCheckInstrs env inLoop stack = function
   | [] -> Ok stack
-  | instr :: instrs -> typeCheckInstr env stack instr >>= flip (typeCheckInstrs env) instrs
+  | instr :: instrs -> typeCheckInstr env inLoop stack instr >>= flip (typeCheckInstrs env inLoop) instrs
 
-and typeCheckEmpty env label instrs =
-  typeCheckInstrs env [] instrs >>= function
+and typeCheckEmpty env inLoop label instrs =
+  typeCheckInstrs env inLoop [] instrs >>= function
     | [] -> Ok ()
     | _ -> Error $"{label} resulted in non-empty stack"
 
-let typeCheckCore env instrs = typeCheckEmpty env "Program" instrs &> instrs
+let typeCheckCore env instrs = typeCheckEmpty env false "Program" instrs &> instrs

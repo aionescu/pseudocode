@@ -67,5 +67,7 @@ type Stmt<'id, 'e> =
   | If of 'e * Stmt<'id, 'e> list * Stmt<'id, 'e> list
   | While of 'e * Stmt<'id, 'e> list
   | For of 'id * 'e * 'e * Stmt<'id, 'e> list
+  | Break
+  | Continue
 
 type Program = Stmt<Id, UExpr> list

@@ -92,6 +92,9 @@ let rec renameStmt stmt =
       scoped (pair <!> allocVar Int i <*> traverse renameStmt s) <&> fun (i, s) ->
       For (i, renameExpr env a, renameExpr env b, s)
 
+  | Break -> pure' Break
+  | Continue -> pure' Continue
+
 let renameProgram stmts =
   traverse renameStmt stmts
   |> runState { env = Map.empty; vars = Map.empty; count = 0; crrScope = [] }

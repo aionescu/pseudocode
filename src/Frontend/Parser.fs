@@ -68,7 +68,8 @@ let arrayLit =
   <&> (ArrayLit >> U)
 
 let reserved =
-  [ "let"; "end"; "if"; "then"; "else"; "while"; "do"; "for"; "in"; "to"; "and"; "or"; "not"; "read"; "write"; "length"
+  [ "let"; "end"; "if"; "then"; "else"; "while"; "do"; "for"; "in"
+    "to"; "and"; "or"; "not"; "read"; "write"; "length"; "break"; "continue"
     "Bool"; "Int"; "Float"; "String"
     "True"; "False"
   ]
@@ -153,11 +154,14 @@ let assign = curry Assign <!> (lvalue <* equals) <*> expr
 
 let write = pstring "write" *> ws *> sepBy expr comma <&> Write
 
+let break' = pstring "break" *> ws &> Break
+let continue' = pstring "continue" *> ws &> Continue
+
 let stmt, stmtRef = createParserForwardedToRef ()
 
 let stmts = many (stmt <* stmtSep)
 
-let end' = pstring "end"
+let end' = pstring "end" *> ws
 
 let if' =
   curry3 If
@@ -178,6 +182,6 @@ let for' =
   <*> (pstring "do" *> ws *> stmtSep *> stmts <* end')
 
 stmtRef.Value <-
-  choice' [for';  while'; if'; write; assign; let']
+  choice' [for';  while'; if'; write; assign; let'; break'; continue']
 
 let program: Program Parser = wsMulti *> stmts <* eof
