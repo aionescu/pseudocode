@@ -10,8 +10,8 @@ let rec simplifyExpr (T (t, e)) =
   match e with
   | BoolLit b -> [PushBool b]
   | IntLit i -> [PushInt i]
-  | RealLit r -> [PushReal r]
-  | TextLit t -> [PushText t]
+  | FloatLit f  -> [PushFloat f]
+  | StringLit s -> [PushString s]
 
   | ArrayLit es ->
       let t =
@@ -25,8 +25,8 @@ let rec simplifyExpr (T (t, e)) =
 
   | Var i -> [LoadVar i]
 
-  | Expr.Read e -> simplifyExpr e @ [Write Text; Read t]
-  | Expr.Length e -> simplifyExpr e @ [Length (t = Text)]
+  | Expr.Read e -> simplifyExpr e @ [Write String; Read t]
+  | Expr.Length e -> simplifyExpr e @ [Length (t = String)]
 
   | Subscript (a, i) -> simplifyExpr a @ simplifyExpr i @ [LoadIndex t]
   | Expr.Not e -> simplifyExpr e @ [Not]
@@ -35,7 +35,7 @@ let rec simplifyExpr (T (t, e)) =
   | Expr.Append (a, b) -> simplifyExpr a @ simplifyExpr b @ [Append]
   | Expr.Pow (a, b) -> simplifyExpr a @ simplifyExpr b @ [Pow]
   | Expr.Arith (op, a, b) -> simplifyExpr a @ simplifyExpr b @ [Arith op]
-  | Expr.Comp (op, a, b) -> simplifyExpr a @ simplifyExpr b @ [Comp (op, t = Text)]
+  | Expr.Comp (op, a, b) -> simplifyExpr a @ simplifyExpr b @ [Comp (op, t = String)]
 
   | Logic (And, a, b) -> simplifyExpr a @ [If (simplifyExpr b, [PushBool false])]
   | Logic (Or, a, b) -> simplifyExpr a @ [If ([PushBool true], simplifyExpr b)]

@@ -4,18 +4,15 @@ open System
 type Id = string
 
 type Type =
-  | Int
-  | Real
-  | Text
   | Bool
+  | Int
+  | Float
+  | String
   | Array of Type
 
 let rec showType = function
-  | Int -> "Integer"
-  | Real -> "Real"
-  | Text -> "Text"
-  | Bool -> "Boolean"
   | Array t -> "[" + showType t + "]"
+  | t -> $"{t}"
 
 type ArithOp =
   | Add
@@ -39,8 +36,8 @@ type LogicOp =
 type Expr<'id, 'e> =
   | BoolLit of bool
   | IntLit of int
-  | RealLit of float
-  | TextLit of string
+  | FloatLit of float
+  | StringLit of string
   | ArrayLit of 'e list
   | Var of 'id
   | Read of 'e

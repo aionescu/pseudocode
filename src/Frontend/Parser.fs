@@ -45,9 +45,9 @@ let numLit =
     if nl.IsInteger then
       U << IntLit <| int nl.String
     else
-      U << RealLit <| float nl.String
+      U << FloatLit <| float nl.String
 
-let textLit: Parser<_> =
+let stringLit: Parser<_> =
   let normalChar = satisfy (fun c -> c <> '\\' && c <> '"')
 
   let unescape = function
@@ -59,7 +59,7 @@ let textLit: Parser<_> =
   let escapedChar = pchar '\\' *> (anyOf "\\nrt\"" <&> unescape)
 
   between (pchar '"') (pchar '"') (manyChars <| choice [normalChar; escapedChar])
-  <&> (TextLit >> U)
+  <&> (StringLit >> U)
 
 let expr, exprRef = createParserForwardedToRef ()
 
@@ -69,7 +69,7 @@ let arrayLit =
 
 let reserved =
   [ "let"; "end"; "if"; "then"; "else"; "while"; "do"; "for"; "in"; "to"; "and"; "or"; "not"; "read"; "write"; "length"
-    "Integer"; "Real"; "Text"; "Boolean"
+    "Bool"; "Int"; "Float"; "String"
     "True"; "False"
   ]
 
@@ -86,7 +86,7 @@ let ident =
 let var = ident <&> (Var >> U)
 
 let parensExpr = between (pchar '(' <* ws) (pchar ')' <* ws) expr
-let exprSimple = choice' [boolLit; numLit; textLit; arrayLit; var; parensExpr] <* ws
+let exprSimple = choice' [boolLit; numLit; stringLit; arrayLit; var; parensExpr] <* ws
 
 let withSubscript e =
   let subscript = between (pchar '[' <* ws) (pchar ']' <* ws) expr
@@ -128,10 +128,10 @@ exprRef.Value <- opp.ExpressionParser
 
 let primType =
   choice [
-    stringReturn "Integer" Int
-    stringReturn "Real" Real
-    stringReturn "Text" Text
-    stringReturn "Boolean" Bool
+    stringReturn "Bool" Bool
+    stringReturn "Int" Int
+    stringReturn "Float" Float
+    stringReturn "String" String
   ]
 
 let type', typeRef = createParserForwardedToRef ()

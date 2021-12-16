@@ -5,10 +5,10 @@ open Frontend.Syntax
 type Idx = int
 
 type Instr =
-  | PushInt of int
-  | PushReal of float
   | PushBool of bool
-  | PushText of string
+  | PushInt of int
+  | PushFloat of float
+  | PushString of string
   | NewArr of Type
 
   | LoadVar of Idx
@@ -21,7 +21,7 @@ type Instr =
   | Write of Type
   | WriteLine
 
-  | Length of isText: bool
+  | Length of isString: bool
 
   | Not
   | Negate
@@ -29,7 +29,7 @@ type Instr =
   | Append
   | Pow
   | Arith of ArithOp
-  | Comp of CompOp * isText: bool
+  | Comp of CompOp * isString: bool
 
   | If of Instr list * Instr list
   | While of Instr list * Instr list

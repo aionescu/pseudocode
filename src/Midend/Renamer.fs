@@ -12,8 +12,8 @@ let rec renameExpr env = mapEx <| fun expr ->
     match expr with
     | BoolLit b -> BoolLit b
     | IntLit i -> IntLit i
-    | RealLit r -> RealLit r
-    | TextLit t -> TextLit t
+    | FloatLit f -> FloatLit f
+    | StringLit s -> StringLit s
     | ArrayLit es -> ArrayLit <| List.map (renameExpr env) es
     | Var i -> Var <| Map.find i env
     | Read e -> Read <| renameExpr env e

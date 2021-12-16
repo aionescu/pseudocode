@@ -5,7 +5,7 @@ open Utils.Result
 open Frontend.Syntax
 
 let mustBeNumeric = function
-  | Int | Real -> Ok ()
+  | Int | Float -> Ok ()
   | t -> Error $"Expected numeric type, found {showType t}"
 
 let mustNotBeArray reason = function
@@ -32,8 +32,8 @@ let rec typeCheckExpr env t (U expr) =
   match expr with
   | BoolLit b -> mustBe t Bool &> T (Bool, BoolLit b)
   | IntLit i -> mustBe t Int &> T (Int, IntLit i)
-  | RealLit r -> mustBe t Real &> T (Real, RealLit r)
-  | TextLit t' -> mustBe t Text &> T (Text, TextLit t')
+  | FloatLit f -> mustBe t Float &> T (Float, FloatLit f)
+  | StringLit s -> mustBe t String &> T (String, StringLit s)
 
   | ArrayLit es ->
       match t with
@@ -48,7 +48,7 @@ let rec typeCheckExpr env t (U expr) =
   | Var i -> lookupVar i env >>= fun t' -> mustBe t t' &> T (t', Var i)
 
   | Read e ->
-      typeCheckExpr env Text e >>= fun e ->
+      typeCheckExpr env String e >>= fun e ->
       mustNotBeArray "read" t &> T (t, Read e)
 
   | Length e ->
@@ -56,7 +56,7 @@ let rec typeCheckExpr env t (U expr) =
       typeInferExpr env e >>= fun e ->
 
       match ty e with
-      | Text | Array _ -> Ok <| T (Int, Length e)
+      | String | Array _ -> Ok <| T (Int, Length e)
       | _ -> Error "Can only take the length of arrays and strings"
 
   | Subscript (a, i) ->
@@ -75,15 +75,15 @@ let rec typeCheckExpr env t (U expr) =
       T (t, Negate e)
 
   | Append (a, b) ->
-      mustBe t Text *>
-      typeCheckExpr env Text a >>= fun a ->
-      typeCheckExpr env Text b <&> fun b ->
-      T (Text, Append (a, b))
+      mustBe t String *>
+      typeCheckExpr env String a >>= fun a ->
+      typeCheckExpr env String b <&> fun b ->
+      T (String, Append (a, b))
 
   | Pow (a, b) ->
-      mustBe t Real *>
-      typeCheckExpr env Real a >>= fun a ->
-      typeCheckExpr env Real b <&> fun b ->
+      mustBe t Float *>
+      typeCheckExpr env Float a >>= fun a ->
+      typeCheckExpr env Float b <&> fun b ->
       T (t, Pow (a, b))
 
   | Arith (op, a, b) ->
@@ -109,8 +109,8 @@ and typeInferExpr env (U expr) =
   match expr with
   | BoolLit b -> Ok <| T (Bool, BoolLit b)
   | IntLit i -> Ok <| T (Int, IntLit i)
-  | RealLit r -> Ok <| T (Real, RealLit r)
-  | TextLit t -> Ok <| T (Text, TextLit t)
+  | FloatLit f -> Ok <| T (Float, FloatLit f)
+  | StringLit s -> Ok <| T (String, StringLit s)
 
   | ArrayLit [] -> Error "Cannot infer the type of empty array literals; Please add a type annotation"
   | ArrayLit es ->
@@ -127,7 +127,7 @@ and typeInferExpr env (U expr) =
       typeInferExpr env e >>= fun e ->
 
       match ty e with
-      | Text | Array _ -> Ok <| T (Int, Length e)
+      | String | Array _ -> Ok <| T (Int, Length e)
       | _ -> Error "Can only take the length of arrays and strings"
 
   | Subscript (a, i) ->
@@ -148,14 +148,14 @@ and typeInferExpr env (U expr) =
       T (ty e, Negate e)
 
   | Append (a, b) ->
-      typeCheckExpr env Text a >>= fun a ->
-      typeCheckExpr env Text b <&> fun b ->
-      T (Text, Append (a, b))
+      typeCheckExpr env String a >>= fun a ->
+      typeCheckExpr env String b <&> fun b ->
+      T (String, Append (a, b))
 
   | Pow (a, b) ->
-      typeCheckExpr env Real a >>= fun a ->
-      typeCheckExpr env Real b <&> fun b ->
-      T (Real, Pow (a, b))
+      typeCheckExpr env Float a >>= fun a ->
+      typeCheckExpr env Float b <&> fun b ->
+      T (Float, Pow (a, b))
 
   | Arith (op, a, b) ->
       typeInferExpr env a >>= fun a ->

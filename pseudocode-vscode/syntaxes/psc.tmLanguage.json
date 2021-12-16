@@ -32,7 +32,7 @@
     "types": {
       "patterns": [{
         "name": "entity.name.type",
-        "match": "\\b(Integer|Real|Text|Boolean)\\b"
+        "match": "\\b(Bool|Int|Float|String)\\b"
       }]
     },
     "operators": {

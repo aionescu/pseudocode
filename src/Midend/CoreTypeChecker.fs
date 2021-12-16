@@ -12,10 +12,10 @@ let lookupVar v env =
 
 let rec typeCheckInstr env stack instr =
   match instr, stack with
-  | PushInt _, _ -> Ok (Int :: stack)
-  | PushReal _, _ -> Ok (Real :: stack)
   | PushBool _, _ -> Ok (Bool :: stack)
-  | PushText _, _ -> Ok (Text :: stack)
+  | PushInt _, _ -> Ok (Int :: stack)
+  | PushFloat _, _ -> Ok (Float :: stack)
+  | PushString _, _ -> Ok (String :: stack)
   | NewArr t, Int :: stack -> Ok (Array t :: stack)
   | LoadVar v, _ -> lookupVar v env <&> fun t -> t :: stack
 
@@ -30,21 +30,21 @@ let rec typeCheckInstr env stack instr =
   | Write t, t' :: stack when t = t' -> mustNotBeArray "written in Core" t &>  stack
   | WriteLine, _ -> Ok stack
 
-  | Length true, Text :: stack  -> Ok (Int :: stack)
+  | Length true, String :: stack  -> Ok (Int :: stack)
   | Length false, Array _ :: stack -> Ok (Int :: stack)
 
   | Not, Bool :: stack -> Ok (Bool :: stack)
 
   | Negate, Int :: stack -> Ok (Int :: stack)
-  | Negate, Real :: stack -> Ok (Real :: stack)
+  | Negate, Float :: stack -> Ok (Float :: stack)
 
-  | Append, Text :: Text :: stack -> Ok (Text :: stack)
-  | Pow, Real :: Real :: stack -> Ok (Real :: stack)
+  | Append, String :: String :: stack -> Ok (String :: stack)
+  | Pow, Float :: Float :: stack -> Ok (Float :: stack)
 
   | Arith _, Int :: Int :: stack -> Ok (Int :: stack)
-  | Arith _, Real :: Real :: stack -> Ok (Real :: stack)
+  | Arith _, Float :: Float :: stack -> Ok (Float :: stack)
 
-  | Comp (_, true), Text :: Text :: stack -> Ok (Bool :: stack)
+  | Comp (_, true), String :: String :: stack -> Ok (Bool :: stack)
   | Comp (_, false), t :: t' :: stack when t = t' -> mustNotBeArray "compared" t &> Bool :: stack
 
   | If (t, f), Bool :: stack ->

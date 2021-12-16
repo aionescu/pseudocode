@@ -32,20 +32,20 @@ let stringNeq = typeof<string>.GetMethod("op_Inequality", [|typeof<string>; type
 let stringLength = typeof<string>.GetMethod("get_Length", [||])
 
 let rec ilType = function
-  | Int -> typeof<int>
-  | Real -> typeof<float>
-  | Text -> typeof<string>
   | Bool -> typeof<bool>
+  | Int -> typeof<int>
+  | Float -> typeof<float>
+  | String -> typeof<string>
   | Array t -> (ilType t).MakeArrayType()
 
 let allocVars (il: IL) = List.iter (fun v -> il.DeclareLocal(ilType v) |> ignore)
 
 let rec emitInstr (il: IL) =
   function
-  | PushInt i -> il.Emit(OpCodes.Ldc_I4, i)
-  | PushReal r -> il.Emit(OpCodes.Ldc_R8, r)
   | PushBool b -> il.Emit(if b then OpCodes.Ldc_I4_1 else OpCodes.Ldc_I4_0)
-  | PushText t -> il.Emit(OpCodes.Ldstr, t)
+  | PushInt i -> il.Emit(OpCodes.Ldc_I4, i)
+  | PushFloat f -> il.Emit(OpCodes.Ldc_R8, f)
+  | PushString s -> il.Emit(OpCodes.Ldstr, s)
 
   | NewArr ty -> il.Emit(OpCodes.Newarr, ilType ty)
 
@@ -54,32 +54,32 @@ let rec emitInstr (il: IL) =
 
   | Dup -> il.Emit(OpCodes.Dup)
 
-  | LoadIndex Int -> il.Emit(OpCodes.Ldelem_I4)
-  | LoadIndex Real -> il.Emit(OpCodes.Ldelem_R8)
   | LoadIndex Bool -> il.Emit(OpCodes.Ldelem_I4)
+  | LoadIndex Int -> il.Emit(OpCodes.Ldelem_I4)
+  | LoadIndex Float -> il.Emit(OpCodes.Ldelem_R8)
   | LoadIndex _ -> il.Emit(OpCodes.Ldelem_Ref)
 
-  | SetIndex Int -> il.Emit(OpCodes.Stelem_I4)
-  | SetIndex Real -> il.Emit(OpCodes.Stelem_R8)
   | SetIndex Bool -> il.Emit(OpCodes.Stelem_I4)
+  | SetIndex Int -> il.Emit(OpCodes.Stelem_I4)
+  | SetIndex Float -> il.Emit(OpCodes.Stelem_R8)
   | SetIndex _ -> il.Emit(OpCodes.Stelem_Ref)
 
   | Read t ->
       il.Emit(OpCodes.Call, consoleReadLine)
 
       match t with
-      | Int -> il.Emit(OpCodes.Call, intParse)
-      | Real -> il.Emit(OpCodes.Call, floatParse)
       | Bool -> il.Emit(OpCodes.Call, boolParse)
-      | Text -> ()
+      | Int -> il.Emit(OpCodes.Call, intParse)
+      | Float -> il.Emit(OpCodes.Call, floatParse)
+      | String -> ()
       | Array _ -> panic ()
 
   | Write t ->
       match t with
-      | Int -> il.Emit(OpCodes.Call, consoleWriteInt)
-      | Real -> il.Emit(OpCodes.Call, consoleWriteFloat)
       | Bool -> il.Emit(OpCodes.Call, consoleWriteBool)
-      | Text -> il.Emit(OpCodes.Call, consoleWriteString)
+      | Int -> il.Emit(OpCodes.Call, consoleWriteInt)
+      | Float -> il.Emit(OpCodes.Call, consoleWriteFloat)
+      | String -> il.Emit(OpCodes.Call, consoleWriteString)
       | Array _ -> panic ()
 
   | WriteLine -> il.Emit(OpCodes.Call, consoleWriteLine)
