@@ -1,4 +1,4 @@
-# pseudoc
+# pseudocode
 
 Pseudocode compiler for .NET
 
@@ -6,7 +6,7 @@ Pseudocode compiler for .NET
 
 You can find some test programs in the [Examples](Examples) folder.
 
-## Building and Running
+## Building & Running
 
 You will need the .NET SDK, which can be downloaded [here](https://dotnet.microsoft.com/download).
 
