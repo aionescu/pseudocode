@@ -26,11 +26,9 @@ let main argv =
     >>= uncurry (P.parse program)
     >>= typeCheckProgram
     <&> renameProgram
-    >>= fun (max, stmts) ->
-      let core = simplifyProgram max stmts
-      let vars = varList max
-      typeCheckCore vars core
-      <&> evalCore vars
+    <&> second simplifyProgram
+    >>= (fun (vars, instrs) -> pair vars <!> typeCheckCore vars instrs)
+    <&> uncurry evalCore
 
   match result with
   | Error e -> printfn $"Error: {e}"; 1

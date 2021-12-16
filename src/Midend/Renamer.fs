@@ -1,22 +1,12 @@
 module Midend.Renamer
 
+open Utils.Function
 open Utils.State
 open Frontend.Syntax
-open Frontend.TypeChecker
-open Utils.Function
 
-type TyIdx = Type * int
+type Idx = Core.Idx
 
 let panic () = failwith "Panic in Renamer"
-
-let unionWith f a b =
-  let add a k v =
-    a |> Map.change k (function
-      | None -> Some v
-      | Some v' -> Some (f v' v)
-    )
-
-  Map.fold add a b
 
 let rec renameExpr env = mapEx <| fun expr ->
     match expr with
@@ -36,33 +26,46 @@ let rec renameExpr env = mapEx <| fun expr ->
     | Comp (op, a, b) -> Comp (op, renameExpr env a, renameExpr env b)
     | Logic (op, a, b) -> Logic (op, renameExpr env a, renameExpr env b)
 
-type VarState = {
-  env: Map<Id, TyIdx>
-  live: Map<Type, int>
-  max: Map<Type, int>
+type RenamerState = {
+  env: Map<Id, Idx>
+  vars: Map<Idx, Type * bool>
+  count: int
+  crrScope: (Id * Idx) list
 }
 
+let findLive ty = Map.tryFindKey (fun _ (t, live) -> ty = t && not live)
+
 let allocVar ty name =
-  get >>= fun { env = env; live = live; max = max' } ->
+  get >>= fun { env = env; vars = vars; count = count; crrScope = crrScope } ->
 
-  let idx =
-    Map.tryFind ty live
-    |> Option.map ((+) 1)
-    |> flip defaultArg 0
+  let env, vars, count, i =
+    match findLive ty vars with
+    | Some i -> Map.add name i env, Map.add i (ty, true) vars, count, i
+    | None -> Map.add name count env, Map.add count (ty, true) vars, count + 1, count
 
-  let live = Map.add ty idx live
+  put { env = env; vars = vars; count = count; crrScope = (name, i) :: crrScope }
+  &> i
 
-  idx <& put {
-    env = Map.add name (ty, idx) env
-    live = live
-    max = unionWith max max' live
-  }
+let deallocVar name i =
+  get >>= fun { env = env; vars = vars } ->
+
+  let env = Map.remove name env
+
+  let vars = vars |> Map.change i (function
+    | None -> None
+    | Some (ty, _) -> Some (ty, false)
+  )
+
+  modify (fun s -> { s with env = env; vars = vars })
 
 let scoped m =
-  get >>= fun old ->
-  m >>= fun a ->
-  get >>= fun { max = max } ->
-  put { old with max = max } &> a
+  get >>= fun { crrScope = oldScope } ->
+  modify (fun s -> { s with crrScope = [] }) *>
+  m >>= fun r ->
+  gets (fun s -> s.crrScope) >>= fun alloced ->
+  traverse_ (uncurry deallocVar) alloced *>
+  modify (fun s -> { s with crrScope = oldScope })
+  &> r
 
 let rec renameStmt stmt =
   get >>= fun { env = env } ->
@@ -70,7 +73,7 @@ let rec renameStmt stmt =
   | Let (_, None, _) -> panic ()
   | Let (i, Some t, e) ->
       allocVar t i <&> fun i ->
-      Let ((t, i), Some t, renameExpr env e)
+      Let (i, Some t, renameExpr env e)
 
   | Assign (i, e) -> pure' <| Assign (renameExpr env i, renameExpr env e)
   | Write es -> pure' (Write <| List.map (renameExpr env) es)
@@ -86,10 +89,10 @@ let rec renameStmt stmt =
 
   | For (i, a, b, s) ->
       scoped (pair <!> allocVar Int i <*> traverse renameStmt s) <&> fun (i, s) ->
-      For ((Int, i), renameExpr env a, renameExpr env b, s)
+      For (i, renameExpr env a, renameExpr env b, s)
 
-let renameProgram stmts : _ * Stmt<TyIdx, TExpr<TyIdx>> list =
+let renameProgram stmts =
   traverse renameStmt stmts
-  |> runState { env = Map.empty; live = Map.empty; max = Map.empty }
-  |> second (fun v -> v.max)
+  |> runState { env = Map.empty; vars = Map.empty; count = 0; crrScope = [] }
+  |> second (fun v -> List.init v.count (flip Map.find v.vars >> fst))
   |> swap
