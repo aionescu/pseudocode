@@ -19,7 +19,7 @@ let ws1 = skipMany1 (choice [skipChar ' '; skipChar '\t'; multiLineComment])
 let ws = ws1 <|>% ()
 
 let wsMulti = skipMany (choice [singleLineComment; endLine; ws1])
-let stmtSep = choice [skipChar ';'; singleLineComment; endLine] *> wsMulti
+let stmtSep = choice [skipChar ';'; singleLineComment; endLine; eof] *> wsMulti
 
 let comma = pchar ',' <* ws
 let equals = pchar '=' <* ws
@@ -178,4 +178,4 @@ let for' =
 stmtRef.Value <-
   choice' [for';  while'; if'; write; assign; let']
 
-let program: Program Parser = stmts <* eof
+let program: Program Parser = wsMulti *> stmts <* eof
