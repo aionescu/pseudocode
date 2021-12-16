@@ -8,10 +8,6 @@ let mustBeNumeric = function
   | Int | Real -> Ok ()
   | t -> Error $"Expected numeric type, found {showType t}"
 
-let mustBeAppendable = function
-  | Array _ | Text -> Ok ()
-  | t -> Error $"Only values of Text or array type can be appended, but found {showType t}"
-
 let mustNotBeArray reason = function
   | Array _ -> Error $"Values of array types cannot be {reason}"
   | _ -> Ok ()
@@ -72,10 +68,10 @@ let rec typeCheckExpr env t (U expr) =
       T (t, Negate e)
 
   | Append (a, b) ->
-      mustBeAppendable t *>
-      typeCheckExpr env t a >>= fun a ->
-      typeCheckExpr env t b <&> fun b ->
-      T (t, Append (a, b))
+      mustBe t Text *>
+      typeCheckExpr env Text a >>= fun a ->
+      typeCheckExpr env Text b <&> fun b ->
+      T (Text, Append (a, b))
 
   | Pow (a, b) ->
       mustBe t Real *>
@@ -138,11 +134,9 @@ and typeInferExpr env (U expr) =
       T (ty e, Negate e)
 
   | Append (a, b) ->
-      typeInferExpr env a >>= fun a ->
-      let t = ty a
-      mustBeAppendable t *>
-      typeCheckExpr env t b <&> fun b ->
-      T (t, Append (a, b))
+      typeCheckExpr env Text a >>= fun a ->
+      typeCheckExpr env Text b <&> fun b ->
+      T (Text, Append (a, b))
 
   | Pow (a, b) ->
       typeCheckExpr env Real a >>= fun a ->
@@ -186,7 +180,10 @@ let rec typeCheckStmt env stmt =
       typeCheckExpr env t e <&> fun e ->
       (env, Assign (lhs, e))
 
-  | Write es -> traverse (typeInferExpr env) es <&> fun es -> (env, Write es)
+  | Write es ->
+      traverse (typeInferExpr env) es >>= fun es ->
+      traverse_ (fun (T (t, _)) -> mustNotBeArray "written directly" t) es &>
+      (env, Write es)
 
   | If (c, then', else') ->
       typeCheckExpr env Bool c >>= fun c ->

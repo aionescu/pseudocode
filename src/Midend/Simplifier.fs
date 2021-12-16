@@ -19,7 +19,7 @@ let rec simplifyExpr (T (t, e)) =
         | Array t -> t
         | _ -> panic ()
 
-      let setElem i e = [Dup; PushInt i] @ simplifyExpr e @ [SetIndex]
+      let setElem i e = [Dup; PushInt i] @ simplifyExpr e @ [SetIndex t]
       let l = List.length es
       [PushInt l; NewArr t] @ List.collect (uncurry setElem) (List.indexed es)
 
@@ -28,11 +28,11 @@ let rec simplifyExpr (T (t, e)) =
   | Expr.Read None -> [Read t]
   | Expr.Read (Some e) -> simplifyExpr e @ [Write Text; Read t]
 
-  | Subscript (a, i) -> simplifyExpr a @ simplifyExpr i @ [LoadIndex]
+  | Subscript (a, i) -> simplifyExpr a @ simplifyExpr i @ [LoadIndex t]
   | Expr.Not e -> simplifyExpr e @ [Not]
   | Expr.Negate e -> simplifyExpr e @ [Negate]
 
-  | Expr.Append (a, b) -> simplifyExpr a @ simplifyExpr b @ [Append (t <> Text)]
+  | Expr.Append (a, b) -> simplifyExpr a @ simplifyExpr b @ [Append]
   | Expr.Pow (a, b) -> simplifyExpr a @ simplifyExpr b @ [Pow]
   | Expr.Arith (op, a, b) -> simplifyExpr a @ simplifyExpr b @ [Arith op]
   | Expr.Comp (op, a, b) -> simplifyExpr a @ simplifyExpr b @ [Comp (op, t = Text)]
@@ -43,10 +43,10 @@ let rec simplifyExpr (T (t, e)) =
 let rec simplifyStmt stmt =
   match stmt with
   | Let (i, _, e)
-  | Assign (T (_, Var i), e) -> simplifyExpr e @ [SetVar i]
 
-  | Assign (T (_, Subscript (a, i)), e) ->
-      simplifyExpr a @ simplifyExpr i @ simplifyExpr e @ [SetIndex]
+  | Assign (T (_, Var i), e) -> simplifyExpr e @ [SetVar i]
+  | Assign (T (t, Subscript (a, i)), e) ->
+      simplifyExpr a @ simplifyExpr i @ simplifyExpr e @ [SetIndex t]
   | Assign _ -> panic ()
 
   | Stmt.Write es ->

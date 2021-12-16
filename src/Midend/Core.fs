@@ -14,8 +14,8 @@ type Instr =
   | LoadVar of Idx
   | SetVar of Idx
   | Dup
-  | LoadIndex
-  | SetIndex
+  | LoadIndex of Type
+  | SetIndex of Type
 
   | Read of Type
   | Write of Type
@@ -24,7 +24,7 @@ type Instr =
   | Not
   | Negate
 
-  | Append of isArray: bool
+  | Append
   | Pow
   | Arith of ArithOp
   | Comp of CompOp * isText: bool

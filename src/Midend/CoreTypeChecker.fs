@@ -24,19 +24,17 @@ let rec typeCheckInstr env stack instr =
       mustBe v t &> stack
 
   | Dup, t :: stack -> Ok (t :: t :: stack)
-  | LoadIndex, Int :: Array t :: stack -> Ok (t :: stack)
-  | SetIndex, t :: Int :: Array t' :: stack when t = t' -> Ok stack
+  | LoadIndex t, Int :: Array t' :: stack when t = t' -> Ok (t :: stack)
+  | SetIndex t, t' :: Int :: Array t'' :: stack when t = t' && t = t'' -> Ok stack
   | Read t, _ -> mustNotBeArray "read" t &> t :: stack
-  | Write t, t' :: stack when t = t' -> Ok stack
+  | Write t, t' :: stack when t = t' -> mustNotBeArray "written in Core" t &>  stack
   | WriteLine, _ -> Ok stack
   | Not, Bool :: stack -> Ok (Bool :: stack)
 
   | Negate, Int :: stack -> Ok (Int :: stack)
   | Negate, Real :: stack -> Ok (Real :: stack)
 
-  | Append false, Text :: Text :: stack -> Ok (Text :: stack)
-  | Append true, Array t :: Array t' :: stack when t = t' -> Ok (Array t :: stack)
-
+  | Append, Text :: Text :: stack -> Ok (Text :: stack)
   | Pow, Real :: Real :: stack -> Ok (Real :: stack)
 
   | Arith _, Int :: Int :: stack -> Ok (Int :: stack)

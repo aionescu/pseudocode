@@ -48,8 +48,8 @@ let rec evalInstr (env: _[]) stack instr =
   | LoadVar i, _ -> env[i] :: stack
   | SetVar i, v :: stack -> env[i] <- v; stack
   | Dup, v :: stack -> v :: v :: stack
-  | LoadIndex, VInt i :: VArray a :: stack -> a[i] :: stack
-  | SetIndex, v :: VInt i :: VArray a :: stack -> a[i] <- v; stack
+  | LoadIndex _, VInt i :: VArray a :: stack -> a[i] :: stack
+  | SetIndex _, v :: VInt i :: VArray a :: stack -> a[i] <- v; stack
 
   | Read t, _ ->
       let line = Console.ReadLine()
@@ -70,9 +70,7 @@ let rec evalInstr (env: _[]) stack instr =
   | Negate, VInt i :: stack -> VInt -i :: stack
   | Negate, VReal r :: stack -> VReal -r :: stack
 
-  | Append false, VText b :: VText a :: stack -> VText (a + b) :: stack
-  | Append true, VArray b :: VArray a :: stack -> VArray (Array.append a b) :: stack
-
+  | Append, VText b :: VText a :: stack -> VText (a + b) :: stack
   | Pow, VReal b :: VReal a :: stack -> VReal (a ** b) :: stack
 
   | Arith op, VInt b :: VInt a :: stack -> VInt (arith op a b) :: stack

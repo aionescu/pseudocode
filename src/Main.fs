@@ -11,7 +11,7 @@ open Frontend.Syntax
 open Midend.Renamer
 open Midend.Simplifier
 open Midend.CoreTypeChecker
-open Backend.CoreEval
+open Backend.Codegen
 
 let getInput = function
   | [|path|] ->
@@ -28,7 +28,7 @@ let main argv =
     <&> renameProgram
     <&> second simplifyProgram
     >>= (fun (vars, instrs) -> pair vars <!> typeCheckCore vars instrs)
-    <&> uncurry evalCore
+    <&> uncurry compileAndRun
 
   match result with
   | Error e -> printfn $"Error: {e}"; 1
