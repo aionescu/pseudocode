@@ -13,20 +13,25 @@ let rec simplifyExpr (T (t, e)) =
   | FloatLit f  -> [PushFloat f]
   | StringLit s -> [PushString s]
 
-  | ArrayLit es ->
+  | ListLit es ->
       let t =
         match t with
-        | Array t -> t
+        | List t -> t
         | _ -> panic ()
 
-      let setElem i e = [Dup; PushInt i] @ simplifyExpr e @ [SetIndex t]
-      let l = List.length es
-      [PushInt l; NewArr t] @ List.collect (uncurry setElem) (List.indexed es)
+      let setElem e = [Dup] @ simplifyExpr e @ [Push <| ty e]
+      [NewList t] @ List.collect setElem es
 
   | Var i -> [LoadVar i]
 
   | Expr.Read e -> simplifyExpr e @ [Write String; Read t]
-  | Expr.Length e -> simplifyExpr e @ [Length (t = String)]
+  | Expr.Length e ->
+      let t =
+        match ty e with
+        | List t -> Some t
+        | _ -> None
+
+      simplifyExpr e @ [Length t]
 
   | Subscript (a, i) -> simplifyExpr a @ simplifyExpr i @ [LoadIndex t]
   | Expr.Not e -> simplifyExpr e @ [Not]
@@ -49,8 +54,24 @@ let rec simplifyStmt stmt =
       simplifyExpr a @ simplifyExpr i @ simplifyExpr e @ [SetIndex t]
   | Assign _ -> panic ()
 
+  | Stmt.Push (i, es) ->
+      let setElem e = [Dup] @ simplifyExpr e @ [Push <| ty e]
+
+      match List.splitAt (List.length es - 1) es with
+      | es, [e] ->
+          simplifyExpr i
+          @ List.collect setElem es
+          @ simplifyExpr e
+          @ [Push <| ty e]
+      | _ -> panic ()
+
+  | Stmt.Pop i ->
+      match ty i with
+      | List t -> simplifyExpr i @ [Pop t]
+      | _ -> panic ()
+
   | Stmt.Write es ->
-      let writeSingle (T (t, _) as e) = simplifyExpr e @ [Write t]
+      let writeSingle e = simplifyExpr e @ [Write <| ty e]
       List.collect writeSingle es @ [WriteLine]
 
   | Stmt.If (c, t, e) -> simplifyExpr c @ [If (simplifyStmts t, simplifyStmts e)]

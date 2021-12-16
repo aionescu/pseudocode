@@ -8,10 +8,10 @@ type Type =
   | Int
   | Float
   | String
-  | Array of Type
+  | List of Type
 
 let rec showType = function
-  | Array t -> "[" + showType t + "]"
+  | List t -> "[" + showType t + "]"
   | t -> $"{t}"
 
 type ArithOp =
@@ -38,7 +38,7 @@ type Expr<'id, 'e> =
   | IntLit of int
   | FloatLit of float
   | StringLit of string
-  | ArrayLit of 'e list
+  | ListLit of 'e list
   | Var of 'id
   | Read of 'e
   | Length of 'e
@@ -63,6 +63,8 @@ let mapEx f (T (t, e)) = T (t, f e)
 type Stmt<'id, 'e> =
   | Let of 'id * Type option * 'e
   | Assign of 'e * 'e
+  | Push of 'e * 'e list
+  | Pop of 'e
   | Write of 'e list
   | If of 'e * Stmt<'id, 'e> list * Stmt<'id, 'e> list
   | While of 'e * Stmt<'id, 'e> list

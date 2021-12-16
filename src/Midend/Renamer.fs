@@ -14,7 +14,7 @@ let rec renameExpr env = mapEx <| fun expr ->
     | IntLit i -> IntLit i
     | FloatLit f -> FloatLit f
     | StringLit s -> StringLit s
-    | ArrayLit es -> ArrayLit <| List.map (renameExpr env) es
+    | ListLit es -> ListLit <| List.map (renameExpr env) es
     | Var i -> Var <| Map.find i env
     | Read e -> Read <| renameExpr env e
     | Length e -> Length <| renameExpr env e
@@ -77,6 +77,8 @@ let rec renameStmt stmt =
       Let (i, Some t, renameExpr env e)
 
   | Assign (i, e) -> pure' <| Assign (renameExpr env i, renameExpr env e)
+  | Push (i, es) -> pure' <| Push (renameExpr env i, List.map (renameExpr env) es)
+  | Pop i -> pure' <| Pop (renameExpr env i)
   | Write es -> pure' (Write <| List.map (renameExpr env) es)
 
   | If (c, t, e) ->

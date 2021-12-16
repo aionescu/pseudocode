@@ -63,15 +63,14 @@ let stringLit: Parser<_> =
 
 let expr, exprRef = createParserForwardedToRef ()
 
-let arrayLit =
+let listLit =
   between (pchar '[' <* ws) (pchar ']' <* ws) (sepBy expr comma)
-  <&> (ArrayLit >> U)
+  <&> (ListLit >> U)
 
 let reserved =
-  [ "let"; "end"; "if"; "then"; "else"; "while"; "do"; "for"; "down"
-    "to"; "and"; "or"; "not"; "read"; "write"; "length"; "break"; "continue"
-    "Bool"; "Int"; "Float"; "String"
-    "True"; "False"
+  [ "let"; "end"; "if"; "then"; "else"; "while"; "do"; "for"; "down"; "to"
+    "and"; "or"; "not"; "read"; "write"; "length"; "break"; "continue"
+    "push"; "pop"; "Bool"; "Int"; "Float"; "String"; "True"; "False"
   ]
 
 let ident =
@@ -87,7 +86,7 @@ let ident =
 let var = ident <&> (Var >> U)
 
 let parensExpr = between (pchar '(' <* ws) (pchar ')' <* ws) expr
-let exprSimple = choice' [boolLit; numLit; stringLit; arrayLit; var; parensExpr] <* ws
+let exprSimple = choice' [boolLit; numLit; stringLit; listLit; var; parensExpr] <* ws
 
 let withSubscript e =
   let subscript = between (pchar '[' <* ws) (pchar ']' <* ws) expr
@@ -137,8 +136,8 @@ let primType =
 
 let type', typeRef = createParserForwardedToRef ()
 
-let arrayType = between (pchar '[' <* ws) (pchar ']' <* ws) type' |>> Array
-typeRef.Value <- choice [arrayType; primType] <* ws
+let listType = between (pchar '[' <* ws) (pchar ']' <* ws) type' |>> List
+typeRef.Value <- choice [listType; primType] <* ws
 
 // Stmts
 
@@ -151,6 +150,13 @@ let let' =
   <*> (equals *> expr)
 
 let assign = curry Assign <!> (lvalue <* equals) <*> expr
+
+let push =
+  curry Push
+  <!> (pstring "push" *> ws *> lvalue)
+  <*> many1 (comma *> expr)
+
+let pop = pstring "pop" *> ws *> lvalue <&> Pop
 
 let write = pstring "write" *> ws *> sepBy expr comma <&> Write
 
@@ -203,6 +209,6 @@ let for' =
   <*> (pstring "do" *> ws *> stmtSep *> stmts <* end')
 
 stmtRef.Value <-
-  choice' [doWhile; for';  while'; if'; write; assign; let'; break'; continue']
+  choice' [doWhile; for';  while'; if'; write; push; pop; assign; let'; break'; continue']
 
 let program: Program Parser = wsMulti *> stmts <* eof

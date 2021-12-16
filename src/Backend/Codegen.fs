@@ -33,12 +33,23 @@ let stringEq = typeof<string>.GetMethod("op_Equality", [|typeof<string>; typeof<
 let stringNeq = typeof<string>.GetMethod("op_Inequality", [|typeof<string>; typeof<string>|])
 let stringLength = typeof<string>.GetMethod("get_Length", [||])
 
+let ilList = typedefof<Collections.Generic.List<_>>
+
 let rec ilType = function
   | Bool -> typeof<bool>
   | Int -> typeof<int>
   | Float -> typeof<float>
   | String -> typeof<string>
-  | Array t -> (ilType t).MakeArrayType()
+  | List t -> ilList.MakeGenericType([|ilType t|])
+
+let listType = List >> ilType
+
+let listCtor t = (listType t).GetConstructor([||])
+let listCount t = (listType t).GetProperty("Count", [||]).GetMethod
+let listGetItem t = (listType t).GetProperty("Item", [|typeof<int>|]).GetMethod
+let listSetItem t = (listType t).GetProperty("Item", [|typeof<int>|]).SetMethod
+let listAdd t = (listType t).GetMethod("Add", [|ilType t|])
+let listRemoveAt t = (listType t).GetMethod("RemoveAt", [|typeof<int>|])
 
 let allocVars (il: IL) = List.iter (fun v -> il.DeclareLocal(ilType v) |> ignore)
 
@@ -49,22 +60,22 @@ let rec emitInstr (il: IL) breakLbl contLbl =
   | PushFloat f -> il.Emit(OpCodes.Ldc_R8, f)
   | PushString s -> il.Emit(OpCodes.Ldstr, s)
 
-  | NewArr ty -> il.Emit(OpCodes.Newarr, ilType ty)
+  | NewList t -> il.Emit(OpCodes.Newobj, listCtor t)
 
   | LoadVar i -> il.Emit(OpCodes.Ldloc, i)
   | SetVar i -> il.Emit(OpCodes.Stloc, i)
 
   | Dup -> il.Emit(OpCodes.Dup)
 
-  | LoadIndex Bool -> il.Emit(OpCodes.Ldelem_I4)
-  | LoadIndex Int -> il.Emit(OpCodes.Ldelem_I4)
-  | LoadIndex Float -> il.Emit(OpCodes.Ldelem_R8)
-  | LoadIndex _ -> il.Emit(OpCodes.Ldelem_Ref)
-
-  | SetIndex Bool -> il.Emit(OpCodes.Stelem_I4)
-  | SetIndex Int -> il.Emit(OpCodes.Stelem_I4)
-  | SetIndex Float -> il.Emit(OpCodes.Stelem_R8)
-  | SetIndex _ -> il.Emit(OpCodes.Stelem_Ref)
+  | LoadIndex t -> il.Emit(OpCodes.Callvirt, listGetItem t)
+  | SetIndex t -> il.Emit(OpCodes.Callvirt, listSetItem t)
+  | Push t -> il.Emit(OpCodes.Callvirt, listAdd t)
+  | Pop t ->
+      il.Emit(OpCodes.Dup)
+      il.Emit(OpCodes.Callvirt, listCount t)
+      il.Emit(OpCodes.Ldc_I4_1)
+      il.Emit(OpCodes.Sub)
+      il.Emit(OpCodes.Callvirt, listRemoveAt t)
 
   | Read t ->
       il.Emit(OpCodes.Call, consoleReadLine)
@@ -74,7 +85,7 @@ let rec emitInstr (il: IL) breakLbl contLbl =
       | Int -> il.Emit(OpCodes.Call, intParse)
       | Float -> il.Emit(OpCodes.Call, floatParse)
       | String -> ()
-      | Array _ -> panic ()
+      | List _ -> panic ()
 
   | Write t ->
       match t with
@@ -82,14 +93,12 @@ let rec emitInstr (il: IL) breakLbl contLbl =
       | Int -> il.Emit(OpCodes.Call, consoleWriteInt)
       | Float -> il.Emit(OpCodes.Call, consoleWriteFloat)
       | String -> il.Emit(OpCodes.Call, consoleWriteString)
-      | Array _ -> panic ()
+      | List _ -> panic ()
 
   | WriteLine -> il.Emit(OpCodes.Call, consoleWriteLine)
 
-  | Length true -> il.Emit(OpCodes.Call, stringLength)
-  | Length false ->
-      il.Emit(OpCodes.Ldlen)
-      il.Emit(OpCodes.Conv_I4)
+  | Length None -> il.Emit(OpCodes.Call, stringLength)
+  | Length (Some t) -> il.Emit(OpCodes.Callvirt, listCount t)
 
   | Not ->
       il.Emit(OpCodes.Ldc_I4_0)
@@ -204,7 +213,7 @@ let compileAndRun vars instrs =
   let mdl = asm.DefineDynamicModule("Module")
   let ty = mdl.DefineType("Program")
 
-  let mtd = ty.DefineMethod("Main", MethodAttributes.Private ||| MethodAttributes.HideBySig ||| MethodAttributes.Static, typeof<Void>, Array.empty)
+  let mtd = ty.DefineMethod("Main", MethodAttributes.Private ||| MethodAttributes.HideBySig ||| MethodAttributes.Static, typeof<Void>, [||])
   let il = mtd.GetILGenerator()
 
   allocVars il vars
@@ -214,7 +223,7 @@ let compileAndRun vars instrs =
   let ty = ty.CreateType()
   let mtd = ty.GetMethod("Main", BindingFlags.NonPublic ||| BindingFlags.Static)
 
-  try ignore <| mtd.Invoke(null, Array.empty)
+  try ignore <| mtd.Invoke(null, [||])
   with :? TargetInvocationException as e ->
     printfn "An exception was thrown:"
     printfn "%A" e.InnerException

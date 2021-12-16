@@ -9,19 +9,22 @@ type Instr =
   | PushInt of int
   | PushFloat of float
   | PushString of string
-  | NewArr of Type
+  | NewList of Type
 
   | LoadVar of Idx
   | SetVar of Idx
   | Dup
+
   | LoadIndex of Type
   | SetIndex of Type
+  | Push of Type
+  | Pop of Type
 
   | Read of Type
   | Write of Type
   | WriteLine
 
-  | Length of isString: bool
+  | Length of Type option
 
   | Not
   | Negate

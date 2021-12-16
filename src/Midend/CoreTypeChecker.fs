@@ -16,7 +16,7 @@ let rec typeCheckInstr env inLoop stack instr =
   | PushInt _, _ -> Ok (Int :: stack)
   | PushFloat _, _ -> Ok (Float :: stack)
   | PushString _, _ -> Ok (String :: stack)
-  | NewArr t, Int :: stack -> Ok (Array t :: stack)
+  | NewList t, stack -> Ok (List t :: stack)
   | LoadVar v, _ -> lookupVar v env <&> fun t -> t :: stack
 
   | SetVar v, t :: stack ->
@@ -24,14 +24,18 @@ let rec typeCheckInstr env inLoop stack instr =
       mustBe v t &> stack
 
   | Dup, t :: stack -> Ok (t :: t :: stack)
-  | LoadIndex t, Int :: Array t' :: stack when t = t' -> Ok (t :: stack)
-  | SetIndex t, t' :: Int :: Array t'' :: stack when t = t' && t = t'' -> Ok stack
-  | Read t, _ -> mustNotBeArray "read" t &> t :: stack
-  | Write t, t' :: stack when t = t' -> mustNotBeArray "written in Core" t &>  stack
+
+  | LoadIndex t, Int :: List t' :: stack when t = t' -> Ok (t :: stack)
+  | SetIndex t, t' :: Int :: List t'' :: stack when t = t' && t = t'' -> Ok stack
+  | Push t, t' :: List t'' :: stack when t = t' && t = t'' -> Ok stack
+  | Pop t, List t' :: stack when t = t' -> Ok stack
+
+  | Read t, _ -> mustNotBeList "read" t &> t :: stack
+  | Write t, t' :: stack when t = t' -> mustNotBeList "written in Core" t &>  stack
   | WriteLine, _ -> Ok stack
 
-  | Length true, String :: stack  -> Ok (Int :: stack)
-  | Length false, Array _ :: stack -> Ok (Int :: stack)
+  | Length None, String :: stack -> Ok (Int :: stack)
+  | Length (Some t), List t' :: stack when t = t' -> Ok (Int :: stack)
 
   | Not, Bool :: stack -> Ok (Bool :: stack)
 
@@ -45,7 +49,7 @@ let rec typeCheckInstr env inLoop stack instr =
   | Arith _, Float :: Float :: stack -> Ok (Float :: stack)
 
   | Comp (_, true), String :: String :: stack -> Ok (Bool :: stack)
-  | Comp (_, false), t :: t' :: stack when t = t' -> mustNotBeArray "compared" t &> Bool :: stack
+  | Comp (_, false), t :: t' :: stack when t = t' -> mustNotBeList "compared" t &> Bool :: stack
 
   | If (t, f), Bool :: stack ->
       typeCheckEmpty env inLoop "True branch" t *>
@@ -72,7 +76,7 @@ let rec typeCheckInstr env inLoop stack instr =
 
   | (Break | Continue), [] when inLoop -> Ok []
 
-  | _ -> Error "Invalid Core instruction"
+  | _ -> Error $"Invalid Core instruction:\n{instr}\n{stack}"
 
 and typeCheckInstrs env inLoop stack = function
   | [] -> Ok stack

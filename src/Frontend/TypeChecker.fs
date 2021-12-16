@@ -8,8 +8,8 @@ let mustBeNumeric = function
   | Int | Float -> Ok ()
   | t -> Error $"Expected numeric type, found {showType t}"
 
-let mustNotBeArray reason = function
-  | Array _ -> Error $"Values of array types cannot be {reason}"
+let mustNotBeList reason = function
+  | List _ -> Error $"Values of list types cannot be {reason}"
   | _ -> Ok ()
 
 let lookupVar i env =
@@ -35,32 +35,32 @@ let rec typeCheckExpr env t (U expr) =
   | FloatLit f -> mustBe t Float &> T (Float, FloatLit f)
   | StringLit s -> mustBe t String &> T (String, StringLit s)
 
-  | ArrayLit es ->
+  | ListLit es ->
       match t with
-      | Array t ->
+      | List t ->
           traverse (typeCheckExpr env t) es >>= fun ts ->
           if List.forall (fun e -> ty e = t) ts then
-            Ok (T (Array t, ArrayLit ts))
+            Ok (T (List t, ListLit ts))
           else
-            Error "Mismatched types in array literal"
-      | _ -> Error $"Expected type {showType t}, but found array literal"
+            Error "Mismatched types in list literal"
+      | _ -> Error $"Expected type {showType t}, but found list literal"
 
   | Var i -> lookupVar i env >>= fun t' -> mustBe t t' &> T (t', Var i)
 
   | Read e ->
       typeCheckExpr env String e >>= fun e ->
-      mustNotBeArray "read" t &> T (t, Read e)
+      mustNotBeList "read" t &> T (t, Read e)
 
   | Length e ->
       mustBe t Int *>
       typeInferExpr env e >>= fun e ->
 
       match ty e with
-      | String | Array _ -> Ok <| T (Int, Length e)
-      | _ -> Error "Can only take the length of arrays and strings"
+      | String | List _ -> Ok <| T (Int, Length e)
+      | _ -> Error "Can only take the length of lists and strings"
 
   | Subscript (a, i) ->
-      typeCheckExpr env (Array t) a >>= fun a ->
+      typeCheckExpr env (List t) a >>= fun a ->
       typeCheckExpr env Int i <&> fun i ->
       T (t, Subscript (a, i))
 
@@ -95,7 +95,7 @@ let rec typeCheckExpr env t (U expr) =
   | Comp (op, a, b) ->
       mustBe t Bool *>
       typeInferExpr env a >>= fun a ->
-      mustNotBeArray "compared" (ty a) *>
+      mustNotBeList "compared" (ty a) *>
       typeCheckExpr env (ty a) b <&> fun b ->
       T (Bool, Comp (op, a, b))
 
@@ -112,12 +112,12 @@ and typeInferExpr env (U expr) =
   | FloatLit f -> Ok <| T (Float, FloatLit f)
   | StringLit s -> Ok <| T (String, StringLit s)
 
-  | ArrayLit [] -> Error "Cannot infer the type of empty array literals; Please add a type annotation"
-  | ArrayLit es ->
+  | ListLit [] -> Error "Cannot infer the type of empty list literals; Please add a type annotation"
+  | ListLit es ->
       traverse (typeInferExpr env) es >>= function
         | (T (t, _) :: ts) as es when List.forall (fun e -> ty e = t) ts ->
-            Ok <| T (Array t, ArrayLit es)
-        | _ -> Error "Mismatched types in array literal"
+            Ok <| T (List t, ListLit es)
+        | _ -> Error "Mismatched types in list literal"
 
   | Var i -> lookupVar i env <&> fun t -> T (t, Var i)
 
@@ -127,16 +127,16 @@ and typeInferExpr env (U expr) =
       typeInferExpr env e >>= fun e ->
 
       match ty e with
-      | String | Array _ -> Ok <| T (Int, Length e)
-      | _ -> Error "Can only take the length of arrays and strings"
+      | String | List _ -> Ok <| T (Int, Length e)
+      | _ -> Error "Can only take the length of lists and strings"
 
   | Subscript (a, i) ->
       typeInferExpr env a >>= fun a ->
       match ty a with
-      | Array t ->
+      | List t ->
           typeCheckExpr env Int i <&> fun i ->
           T (t, Subscript (a, i))
-      | _ -> Error "Cannot subscript into non-array values"
+      | _ -> Error "Cannot subscript into non-list values"
 
   | Not e ->
       typeCheckExpr env Bool e <&> fun e ->
@@ -167,7 +167,7 @@ and typeInferExpr env (U expr) =
   | Comp (op, a, b) ->
       typeInferExpr env a >>= fun a ->
       let t = ty a
-      mustNotBeArray "compared" t *>
+      mustNotBeList "compared" t *>
       typeCheckExpr env t b <&> fun b ->
       T (Bool, Comp (op, a, b))
 
@@ -194,9 +194,24 @@ let rec typeCheckStmt env inLoop stmt =
       typeCheckExpr env t e <&> fun e ->
       (env, Assign (lhs, e))
 
+  | Push (lhs, es) ->
+      mustBeLValue lhs *>
+      typeInferExpr env lhs >>= fun lhs ->
+      match ty lhs with
+      | List t ->
+          traverse (typeCheckExpr env t) es <&> fun es ->
+          (env, Push (lhs, es))
+      | _ -> Error "Can only push onto lists"
+
+  | Pop e ->
+      typeInferExpr env e >>= fun e ->
+      match ty e with
+      | List t -> Ok (env, Pop e)
+      | _ -> Error "Can only pop from lists"
+
   | Write es ->
       traverse (typeInferExpr env) es >>= fun es ->
-      traverse_ (fun (T (t, _)) -> mustNotBeArray "written directly" t) es &>
+      traverse_ (fun (T (t, _)) -> mustNotBeList "written" t) es &>
       (env, Write es)
 
   | If (c, then', else') ->
