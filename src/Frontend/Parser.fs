@@ -164,10 +164,25 @@ let stmts = many (stmt <* stmtSep)
 let end' = pstring "end" *> ws
 
 let if' =
-  curry3 If
-  <!> (pstring "if" *> ws *> expr)
-  <*> (pstring "then" *> ws *> stmtSep *> stmts)
-  <*> ((pstring "else" *> ws *> stmtSep *> stmts) <|>% [] <* end')
+  let if' = pstring "if" *> ws
+  let then' = pstring "then" *> ws
+  let else' = pstring "else" *> ws
+
+  let elseIf =
+    pair
+    <!> (else' *> if' *> expr)
+    <*> (then' *> stmtSep *> stmts)
+
+  let rec unrollIf c t es e =
+    match es with
+    | [] -> If (c, t, e)
+    | (c', t') :: es -> If (c, t, [unrollIf c' t' es e])
+
+  unrollIf
+  <!> (if' *> expr)
+  <*> (then' *> stmtSep *> stmts)
+  <*> many (attempt elseIf)
+  <*> ((else' *> stmtSep *> stmts) <|>% [] <* end')
 
 let while' =
   curry While
