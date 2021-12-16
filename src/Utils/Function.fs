@@ -15,3 +15,7 @@ let (..<) f g = g >.. f
 
 let cons x xs = x :: xs
 let swap (a, b) = (b, a)
+
+let first f (a, b) = (f a, b)
+let second f (a, b) = (a, f b)
+let pair a b = (a, b)

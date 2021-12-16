@@ -1,6 +1,6 @@
 module Midend.Renamer
 
-open Utils.Result
+open Utils.State
 open Frontend.Syntax
 open Frontend.TypeChecker
 open Utils.Function
@@ -36,47 +36,60 @@ let rec renameExpr env = mapEx <| fun expr ->
     | Comp (op, a, b) -> Comp (op, renameExpr env a, renameExpr env b)
     | Logic (op, a, b) -> Logic (op, renameExpr env a, renameExpr env b)
 
-let allocVar env live max' ty name =
+type VarState = {
+  env: Map<Id, TyIdx>
+  live: Map<Type, int>
+  max: Map<Type, int>
+}
+
+let allocVar ty name =
+  get >>= fun { env = env; live = live; max = max' } ->
+
   let idx =
     Map.tryFind ty live
     |> Option.map ((+) 1)
     |> flip defaultArg 0
 
   let live = Map.add ty idx live
-  (Map.add name (ty, idx) env, live, unionWith max max' live, idx)
 
-let rec renameStmt env live max stmt =
+  idx <& put {
+    env = Map.add name (ty, idx) env
+    live = live
+    max = unionWith max max' live
+  }
+
+let scoped m =
+  get >>= fun old ->
+  m >>= fun a ->
+  get >>= fun { max = max } ->
+  put { old with max = max } &> a
+
+let rec renameStmt stmt =
+  get >>= fun { env = env } ->
   match stmt with
   | Let (_, None, _) -> panic ()
   | Let (i, Some t, e) ->
-      let env', live, max, idx = allocVar env live max t i
-      env', live, max, Let ((t, idx), Some t, renameExpr env e)
+      allocVar t i <&> fun i ->
+      Let ((t, i), Some t, renameExpr env e)
 
-  | Assign (i, e) -> env, live, max, Assign (renameExpr env i, renameExpr env e)
-  | Write es -> env, live, max, Write <| List.map (renameExpr env) es
+  | Assign (i, e) -> pure' <| Assign (renameExpr env i, renameExpr env e)
+  | Write es -> pure' (Write <| List.map (renameExpr env) es)
 
   | If (c, t, e) ->
-      let _, _, max, t = renameStmts env live max t
-      let _, _, max, e = renameStmts env live max e
-
-      env, live, max, If (renameExpr env c, t, e)
+      scoped (traverse renameStmt t) >>= fun t ->
+      scoped (traverse renameStmt e) <&> fun e ->
+      If (renameExpr env c, t, e)
 
   | While (c, s) ->
-      let _, _, max, s = renameStmts env live max s
-      env, live, max, While (renameExpr env c, s)
+      scoped (traverse renameStmt s) <&> fun s ->
+      While (renameExpr env c, s)
 
   | For (i, a, b, s) ->
-      let env', live', max, idx = allocVar env live max Int i
-      let _, _, max, s = renameStmts env' live' max s
-      env, live, max, For ((Int, idx), renameExpr env a, renameExpr env b, s)
-
-and renameStmts env live max = function
-  | [] -> env, live, max, []
-  | stmt :: stmts ->
-      let env, live, max, stmt = renameStmt env live max stmt
-      let env, live, max, stmts = renameStmts env live max stmts
-      env, live, max, stmt :: stmts
+      scoped (pair <!> allocVar Int i <*> traverse renameStmt s) <&> fun (i, s) ->
+      For ((Int, i), renameExpr env a, renameExpr env b, s)
 
 let renameProgram stmts : _ * Stmt<TyIdx, TExpr<TyIdx>> list =
-  let _, _, max, stmts = renameStmts Map.empty Map.empty Map.empty stmts
-  max, stmts
+  traverse renameStmt stmts
+  |> runState { env = Map.empty; live = Map.empty; max = Map.empty }
+  |> second (fun v -> v.max)
+  |> swap

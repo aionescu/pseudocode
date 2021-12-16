@@ -7,7 +7,6 @@ open Utils.Result
 module P = Utils.Parser
 open Frontend.Parser
 open Frontend.TypeChecker
-open Backend.Eval
 open Frontend.Syntax
 open Midend.Renamer
 open Midend.Simplifier
