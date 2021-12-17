@@ -4,10 +4,8 @@ open System.IO
 
 open Utils.Misc
 open Utils.Monad.Result
-module P = Utils.Monad.Parser
 open Frontend.Parser
 open Frontend.TypeChecker
-open Frontend.Syntax
 open Midend.Renamer
 open Midend.Simplifier
 open Midend.CoreTypeChecker
@@ -23,12 +21,12 @@ let getInput = function
 let main argv =
   let result =
     getInput argv
-    >>= uncurry (P.parse program)
-    >>= typeCheckProgram
-    <&> renameProgram
-    <&> second simplifyProgram
-    >>= (fun (vars, instrs) -> pair vars <!> typeCheckCore vars instrs)
-    <&> uncurry compileAndRun
+    >>= parse
+    >>= typeCheck
+    <&> rename
+    <&> simplify
+    >>= typeCheckCore
+    <&> compileAndRun
 
   match result with
   | Error e -> printfn $"Error: {e}"; 1

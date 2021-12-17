@@ -249,4 +249,7 @@ and typeCheckStmts env inLoop = function
       typeCheckStmt env inLoop stmt >>= fun (env, stmt) ->
       typeCheckStmts env inLoop stmts <&> fun (env, stmts) -> (env, stmt :: stmts)
 
-let typeCheckProgram stmts = typeCheckStmts Map.empty false stmts <&> snd
+let typeCheck stmts =
+  typeCheckStmts Map.empty false stmts
+  <&> snd
+  |> Result.mapError ((+) "Type error: ")

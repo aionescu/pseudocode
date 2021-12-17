@@ -175,9 +175,7 @@ let if' =
   let else' = pstring "else" *> ws
 
   let elseIf =
-    pair
-    <!> (else' *> if' *> expr)
-    <*> (then' *> stmtSep *> stmts)
+    (else' *> if' *> expr) .>>. (then' *> stmtSep *> stmts)
 
   let rec unrollIf c t es e =
     match es with
@@ -212,3 +210,7 @@ stmtRef.Value <-
   choice' [doWhile; for';  while'; if'; write; push; pop; assign; let'; break'; continue']
 
 let program: Program Parser = wsMulti *> stmts <* eof
+
+let parse (name, code) =
+  parse program name code
+  |> Result.mapError ((+) "Parser error:\n")

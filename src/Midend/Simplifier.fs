@@ -94,4 +94,4 @@ let rec simplifyStmt stmt =
 
 and simplifyStmts = List.collect simplifyStmt
 
-let simplifyProgram = simplifyStmts
+let simplify (vars, stmts) = vars, simplifyStmts stmts

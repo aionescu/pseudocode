@@ -208,7 +208,7 @@ let rec emitInstr (il: IL) breakLbl contLbl =
   | Break -> il.Emit(OpCodes.Br, breakLbl)
   | Continue -> il.Emit(OpCodes.Br, contLbl)
 
-let compileAndRun vars instrs =
+let compileAndRun (vars, instrs) =
   let asm = AssemblyBuilder.DefineDynamicAssembly(AssemblyName("Pseudocode"), AssemblyBuilderAccess.Run)
   let mdl = asm.DefineDynamicModule("Module")
   let ty = mdl.DefineType("Program")

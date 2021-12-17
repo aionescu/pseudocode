@@ -87,4 +87,7 @@ and typeCheckEmpty env inLoop label instrs =
     | [] -> Ok ()
     | _ -> Error $"{label} resulted in non-empty stack"
 
-let typeCheckCore env instrs = typeCheckEmpty env false "Program" instrs &> instrs
+let typeCheckCore (vars, instrs) =
+  typeCheckEmpty vars false "Program" instrs
+  &> (vars, instrs)
+  |> Result.mapError ((+) "Core type error: ")
