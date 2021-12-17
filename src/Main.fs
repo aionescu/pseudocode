@@ -17,17 +17,17 @@ let getInput = function
       with e -> Error e.Message
   | _ -> Error "Expecting exactly 1 command-line argument"
 
+let runCompiler args =
+  getInput args
+  >>= parse
+  >>= typeCheck
+  <&> rename
+  <&> simplify
+  >>= typeCheckCore
+  <&> compileAndRun
+
 [<EntryPoint>]
 let main argv =
-  let result =
-    getInput argv
-    >>= parse
-    >>= typeCheck
-    <&> rename
-    <&> simplify
-    >>= typeCheckCore
-    <&> compileAndRun
-
-  match result with
-  | Error e -> printfn $"Error: {e}"; 1
+  match runCompiler argv with
+  | Error e -> printfn $"{e}"; 1
   | Ok () -> 0
