@@ -1,7 +1,7 @@
 module Frontend.TypeChecker
 
-open Utils.Function
-open Utils.Result
+open Utils.Misc
+open Utils.Monad.Result
 open Frontend.Syntax
 
 let mustBeNumeric = function

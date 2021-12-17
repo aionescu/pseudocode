@@ -2,8 +2,8 @@ module Frontend.Parser
 
 open FParsec
 
-open Utils.Function
-open Utils.Parser
+open Utils.Misc
+open Utils.Monad.Parser
 open Frontend.Syntax
 
 // Misc Parsers

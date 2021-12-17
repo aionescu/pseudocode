@@ -1,4 +1,4 @@
-module Utils.Parser
+module Utils.Monad.Parser
 
 open FParsec
 

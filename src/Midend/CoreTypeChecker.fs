@@ -1,10 +1,10 @@
 module Midend.CoreTypeChecker
 
-open Utils.Result
+open Utils.Monad.Result
 open Frontend.Syntax
 open Frontend.TypeChecker
 open Midend.Core
-open Utils.Function
+open Utils.Misc
 
 let lookupVar v env =
   List.tryItem v env

@@ -2,9 +2,9 @@
 
 open System.IO
 
-open Utils.Function
-open Utils.Result
-module P = Utils.Parser
+open Utils.Misc
+open Utils.Monad.Result
+module P = Utils.Monad.Parser
 open Frontend.Parser
 open Frontend.TypeChecker
 open Frontend.Syntax

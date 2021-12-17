@@ -7,10 +7,10 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="src/Utils/Function.fs"/>
-    <Compile Include="src/Utils/Result.fs"/>
-    <Compile Include="src/Utils/Parser.fs"/>
-    <Compile Include="src/Utils/State.fs"/>
+    <Compile Include="src/Utils/Misc.fs"/>
+    <Compile Include="src/Utils/Monad/Result.fs"/>
+    <Compile Include="src/Utils/Monad/Parser.fs"/>
+    <Compile Include="src/Utils/Monad/State.fs"/>
 
     <Compile Include="src/Frontend/Syntax.fs"/>
     <Compile Include="src/Frontend/Parser.fs"/>

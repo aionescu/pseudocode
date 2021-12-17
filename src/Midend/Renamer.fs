@@ -1,7 +1,7 @@
 module Midend.Renamer
 
-open Utils.Function
-open Utils.State
+open Utils.Misc
+open Utils.Monad.State
 open Frontend.Syntax
 
 type Idx = Core.Idx

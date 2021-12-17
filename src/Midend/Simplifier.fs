@@ -1,6 +1,6 @@
 module Midend.Simplifier
 
-open Utils.Function
+open Utils.Misc
 open Frontend.Syntax
 open Midend.Core
 

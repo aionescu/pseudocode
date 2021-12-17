@@ -1,4 +1,4 @@
-module Utils.Function
+module Utils.Misc
 
 let flip f a b = f b a
 let const' a _ = a
