@@ -1,8 +1,8 @@
-module Frontend.TypeChecker
+module Compiler.Frontend.TypeChecker
 
-open Utils.Misc
-open Utils.Monad.TC
-open Frontend.Syntax
+open Utils
+open Monad.TC
+open Compiler.Frontend.Syntax
 
 let mustBeNumeric = function
   | Int | Float -> pure' ()

@@ -1,8 +1,8 @@
-module Midend.Renamer
+module Compiler.Midend.Renamer
 
-open Utils.Misc
-open Utils.Monad.State
-open Frontend.Syntax
+open Utils
+open Monad.State
+open Compiler.Frontend.Syntax
 
 type Idx = Core.Idx
 

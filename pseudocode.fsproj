@@ -7,19 +7,20 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="src/Utils/Misc.fs"/>
-    <Compile Include="src/Utils/Monad/State.fs"/>
-    <Compile Include="src/Utils/Monad/TC.fs"/>
+    <Compile Include="src/Utils.fs"/>
 
-    <Compile Include="src/Frontend/Syntax.fs"/>
-    <Compile Include="src/Frontend/Parser.fs"/>
-    <Compile Include="src/Frontend/TypeChecker.fs"/>
+    <Compile Include="src/Monad/State.fs"/>
+    <Compile Include="src/Monad/TC.fs"/>
 
-    <Compile Include="src/Midend/Core.fs"/>
-    <Compile Include="src/Midend/Renamer.fs"/>
-    <Compile Include="src/Midend/Simplifier.fs"/>
+    <Compile Include="src/Compiler/Frontend/Syntax.fs"/>
+    <Compile Include="src/Compiler/Frontend/Parser.fs"/>
+    <Compile Include="src/Compiler/Frontend/TypeChecker.fs"/>
 
-    <Compile Include="src/Backend/Codegen.fs"/>
+    <Compile Include="src/Compiler/Midend/Core.fs"/>
+    <Compile Include="src/Compiler/Midend/Renamer.fs"/>
+    <Compile Include="src/Compiler/Midend/Simplifier.fs"/>
+
+    <Compile Include="src/Compiler/Backend/Codegen.fs"/>
 
     <Compile Include="src/Main.fs"/>
   </ItemGroup>

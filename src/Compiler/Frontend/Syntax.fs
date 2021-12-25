@@ -1,4 +1,4 @@
-module Frontend.Syntax
+module Compiler.Frontend.Syntax
 
 open System
 type Id = string

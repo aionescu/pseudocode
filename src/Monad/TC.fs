@@ -1,6 +1,6 @@
-module Utils.Monad.TC
+module Monad.TC
 
-open Utils.Misc
+open Utils
 
 type TC<'e, 'r, 'a> = TC of ('r -> Result<'a, 'e>)
 

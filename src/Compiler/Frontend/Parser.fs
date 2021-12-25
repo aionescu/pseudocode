@@ -1,9 +1,9 @@
-module Frontend.Parser
+module Compiler.Frontend.Parser
 
 open FParsec
 
-open Utils.Misc
-open Frontend.Syntax
+open Utils
+open Compiler.Frontend.Syntax
 
 type Parser<'a> = Parser<'a, unit>
 

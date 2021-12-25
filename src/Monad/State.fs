@@ -1,6 +1,6 @@
-module Utils.Monad.State
+module Monad.State
 
-open Utils.Misc
+open Utils
 
 type State<'s, 'a> = State of ('s -> 'a * 's)
 

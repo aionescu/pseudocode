@@ -1,6 +1,6 @@
-module Midend.Core
+module Compiler.Midend.Core
 
-open Frontend.Syntax
+open Compiler.Frontend.Syntax
 
 type Idx = int
 

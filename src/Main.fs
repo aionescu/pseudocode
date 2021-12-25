@@ -2,12 +2,12 @@
 
 open System.IO
 
-open Utils.Misc
-open Frontend.Parser
-open Frontend.TypeChecker
-open Midend.Renamer
-open Midend.Simplifier
-open Backend.Codegen
+open Utils
+open Compiler.Frontend.Parser
+open Compiler.Frontend.TypeChecker
+open Compiler.Midend.Renamer
+open Compiler.Midend.Simplifier
+open Compiler.Backend.Codegen
 
 let getInput = function
   | [|path|] ->

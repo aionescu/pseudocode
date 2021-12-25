@@ -1,8 +1,8 @@
-module Midend.Simplifier
+module Compiler.Midend.Simplifier
 
-open Utils.Misc
-open Frontend.Syntax
-open Midend.Core
+open Utils
+open Compiler.Frontend.Syntax
+open Compiler.Midend.Core
 
 let panic () = failwith "Panic in Simplifier"
 
