@@ -12,8 +12,8 @@ open Compiler.Backend.Codegen
 let getInput = function
   | [|path|] ->
       try Ok (path, File.ReadAllText path)
-      with e -> Error e.Message
-  | _ -> Error "Expecting exactly 1 command-line argument"
+      with e -> Error $"IO error: {e.Message}"
+  | _ -> Error "Error: Expecting exactly 1 command-line argument"
 
 let runCompiler args =
   getInput args
