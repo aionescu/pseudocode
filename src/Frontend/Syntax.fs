@@ -61,16 +61,16 @@ let ex (T (_, e)) = e
 let mapEx f (T (t, e)) = T (t, f e)
 
 type Stmt<'id, 'e> =
-  | Let of 'id * Type option * 'e
+  | Let of 'id * Type option * 'e * Stmt<'id, 'e>
   | Assign of 'e * 'e
   | Push of 'e * 'e list
   | Pop of 'e
   | Write of 'e list
-  | If of 'e * Stmt<'id, 'e> list * Stmt<'id, 'e> list
-  | While of 'e * Stmt<'id, 'e> list
-  | DoWhile of Stmt<'id, 'e> list * 'e
-  | For of 'id * 'e * bool * 'e * Stmt<'id, 'e> list
+  | If of 'e * Stmt<'id, 'e> * Stmt<'id, 'e>
+  | While of 'e * Stmt<'id, 'e>
+  | DoWhile of Stmt<'id, 'e> * 'e
+  | For of 'id * 'e * bool * 'e * Stmt<'id, 'e>
   | Break
   | Continue
-
-type Program = Stmt<Id, UExpr> list
+  | Seq of Stmt<'id, 'e> * Stmt<'id, 'e>
+  | Nop

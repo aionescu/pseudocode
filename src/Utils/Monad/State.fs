@@ -2,27 +2,29 @@ module Utils.Monad.State
 
 open Utils.Misc
 
-type State<'s, 'a> = 's -> 'a * 's
+type State<'s, 'a> = State of ('s -> 'a * 's)
 
-let runState s (f: State<'s, 'a>) = f s
-let evalState s (f: State<'s, 'a>) = fst <| f s
-let execState s (f: State<'s, 'a>) = snd <| f s
+let runState s (State m) = m s
+let evalState s (State m) = fst <| m s
+let execState s (State m) = snd <| m s
 
-let get : State<'s, 's> = fun s -> s, s
-let gets (f: 's -> 'a) : State<'s, 'a> = fun s -> f s, s
-let put s : State<'s, unit> = fun _ -> (), s
-let modify f : State<'s, unit> = fun s -> (), f s
+let get () = State <| fun s -> s, s
+let gets f = State <| fun s -> f s, s
+let put s = State <| fun _ -> (), s
+let modify f = State <| fun s -> (), f s
 
-let pure' a : State<'s, 'a> = fun s -> a, s
+let pure' a = State <| fun s -> a, s
 
-let (<!>) (f: 'a -> 'b) (m: State<'s, 'a>): State<'s, 'b> = m >> first f
+let (<!>) f (State m) = State (m >> first f)
 
-let (<*>) (f: State<'s, 'a -> 'b>) (a: State<'s, 'a>): State<'s, 'b> = fun s ->
+let (<*>) (State f) (State a) = State <| fun s ->
   let f, s = f s
   let a, s = a s
   f a, s
 
-let (=<<) (f: 'a -> State<'s, 'b>) (m: State<'s, 'a>): State<'s, 'b> = m >> uncurry f
+let (=<<) f (State m) = State <| fun s ->
+  let a, s = m s
+  runState s (f a)
 
 let (<&>) m f = f <!> m
 let (>>=) m f = f =<< m

@@ -19,3 +19,12 @@ let swap (a, b) = (b, a)
 let first f (a, b) = (f a, b)
 let second f (a, b) = (a, f b)
 let pair a b = (a, b)
+
+let rec foldr1 f = function
+  | [] -> failwith "foldr1: Empty list"
+  | [x] -> x
+  | x :: xs -> f x (foldr1 f xs)
+
+let explain e = function
+  | None -> Error e
+  | Some a -> Ok a

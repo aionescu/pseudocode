@@ -37,7 +37,7 @@ type RenamerState = {
 let findLive ty = Map.tryFindKey (fun _ (t, live) -> ty = t && not live)
 
 let allocVar ty name =
-  get >>= fun { env = env; vars = vars; count = count; crrScope = crrScope } ->
+  get () >>= fun { env = env; vars = vars; count = count; crrScope = crrScope } ->
 
   let env, vars, count, i =
     match findLive ty vars with
@@ -48,7 +48,7 @@ let allocVar ty name =
   &> i
 
 let deallocVar name i =
-  get >>= fun { env = env; vars = vars } ->
+  get () >>= fun { env = env; vars = vars } ->
 
   let env = Map.remove name env
 
@@ -60,7 +60,7 @@ let deallocVar name i =
   modify (fun s -> { s with env = env; vars = vars })
 
 let scoped m =
-  get >>= fun { crrScope = oldScope } ->
+  get () >>= fun { crrScope = oldScope } ->
   modify (fun s -> { s with crrScope = [] }) *>
   m >>= fun r ->
   gets (fun s -> s.crrScope) >>= fun alloced ->
@@ -69,12 +69,13 @@ let scoped m =
   &> r
 
 let rec renameStmt stmt =
-  get >>= fun { env = env } ->
+  get () >>= fun { env = env } ->
   match stmt with
-  | Let (_, None, _) -> panic ()
-  | Let (i, Some t, e) ->
-      allocVar t i <&> fun i ->
-      Let (i, Some t, renameExpr env e)
+  | Let (_, None, _, _) -> panic ()
+  | Let (i, Some t, e, s) ->
+      allocVar t i >>= fun i ->
+      renameStmt s <&> fun s ->
+      Let (i, Some t, renameExpr env e, s)
 
   | Assign (i, e) -> pure' <| Assign (renameExpr env i, renameExpr env e)
   | Push (i, es) -> pure' <| Push (renameExpr env i, List.map (renameExpr env) es)
@@ -82,30 +83,37 @@ let rec renameStmt stmt =
   | Write es -> pure' (Write <| List.map (renameExpr env) es)
 
   | If (c, t, e) ->
-      scoped (traverse renameStmt t) >>= fun t ->
-      scoped (traverse renameStmt e) <&> fun e ->
+      scoped (renameStmt t) >>= fun t ->
+      scoped (renameStmt e) <&> fun e ->
       If (renameExpr env c, t, e)
 
   | While (c, s) ->
-      scoped (traverse renameStmt s) <&> fun s ->
+      scoped (renameStmt s) <&> fun s ->
       While (renameExpr env c, s)
 
   | DoWhile (s, c) ->
       scoped (
-        traverse renameStmt s >>= fun s ->
+        renameStmt s >>= fun s ->
         gets (fun s -> s.env) <&> fun env ->
         DoWhile (s, renameExpr env c)
       )
 
   | For (i, a, down, b, s) ->
-      scoped (pair <!> allocVar Int i <*> traverse renameStmt s) <&> fun (i, s) ->
+      scoped (pair <!> allocVar Int i <*> renameStmt s) <&> fun (i, s) ->
       For (i, renameExpr env a, down, renameExpr env b, s)
 
   | Break -> pure' Break
   | Continue -> pure' Continue
 
-let rename stmts =
-  traverse renameStmt stmts
+  | Seq (a, b) ->
+      renameStmt a >>= fun a ->
+      renameStmt b <&> fun b ->
+      Seq (a, b)
+
+  | Nop -> pure' Nop
+
+let rename stmt =
+  renameStmt stmt
   |> runState { env = Map.empty; vars = Map.empty; count = 0; crrScope = [] }
   |> second (fun v -> List.init v.count (flip Map.find v.vars >> fst))
   |> swap

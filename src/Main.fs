@@ -3,12 +3,10 @@
 open System.IO
 
 open Utils.Misc
-open Utils.Monad.Result
 open Frontend.Parser
 open Frontend.TypeChecker
 open Midend.Renamer
 open Midend.Simplifier
-open Midend.CoreTypeChecker
 open Backend.Codegen
 
 let getInput = function
@@ -19,12 +17,9 @@ let getInput = function
 
 let runCompiler args =
   getInput args
-  >>= parse
-  >>= typeCheck
-  <&> rename
-  <&> simplify
-  >>= typeCheckCore
-  <&> compileAndRun
+  |> Result.bind parse
+  |> Result.bind typeCheck
+  |> Result.map (rename >> simplify >> compileAndRun)
 
 [<EntryPoint>]
 let main argv =

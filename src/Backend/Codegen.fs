@@ -65,6 +65,11 @@ let rec emitInstr (il: IL) breakLbl contLbl =
   | LoadVar i -> il.Emit(OpCodes.Ldloc, i)
   | SetVar i -> il.Emit(OpCodes.Stloc, i)
 
+  | ClearVar (i, t) ->
+      if not (ilType t).IsValueType then
+        il.Emit(OpCodes.Ldnull)
+        il.Emit(OpCodes.Stloc, i)
+
   | Dup -> il.Emit(OpCodes.Dup)
 
   | LoadIndex t -> il.Emit(OpCodes.Callvirt, listGetItem t)

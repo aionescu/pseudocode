@@ -1,34 +1,33 @@
 module Frontend.TypeChecker
 
 open Utils.Misc
-open Utils.Monad.Result
+open Utils.Monad.TC
 open Frontend.Syntax
 
 let mustBeNumeric = function
-  | Int | Float -> Ok ()
-  | t -> Error $"Expected numeric type, found {showType t}"
+  | Int | Float -> pure' ()
+  | t -> err $"Expected numeric type, found {showType t}"
 
 let mustNotBeList reason = function
-  | List _ -> Error $"Values of list types cannot be {reason}"
-  | _ -> Ok ()
+  | List _ -> err $"Values of list types cannot be {reason}"
+  | _ -> pure' ()
 
-let lookupVar i env =
-  Map.tryFind i env
-  |> explain $"Undeclared variable \"{i}\""
+let lookupVar i =
+  asks (Map.tryFind i) >>= (explain $"Undeclared variable \"{i}\"" >> lift)
 
 let mustBe expected actual =
   if actual = expected then
-    Ok ()
+    pure' ()
   else
-    Error $"Expected type {showType expected}, but found {showType actual}"
+    err $"Expected type {showType expected}, but found {showType actual}"
 
 let rec mustBeLValue (U expr) =
   match expr with
   | Subscript (a, _) -> mustBeLValue a
-  | Var _ -> Ok ()
-  | _ -> Error "Expected lvalue"
+  | Var _ -> pure' ()
+  | _ -> err "Expected lvalue"
 
-let rec typeCheckExpr env t (U expr) =
+let rec typeCheckExpr t (U expr) =
   match expr with
   | BoolLit b -> mustBe t Bool &> T (Bool, BoolLit b)
   | IntLit i -> mustBe t Int &> T (Int, IntLit i)
@@ -38,218 +37,229 @@ let rec typeCheckExpr env t (U expr) =
   | ListLit es ->
       match t with
       | List t ->
-          traverse (typeCheckExpr env t) es >>= fun ts ->
+          traverse (typeCheckExpr t) es >>= fun ts ->
           if List.forall (fun e -> ty e = t) ts then
-            Ok (T (List t, ListLit ts))
+            pure' (T (List t, ListLit ts))
           else
-            Error "Mismatched types in list literal"
-      | _ -> Error $"Expected type {showType t}, but found list literal"
+            err "Mismatched types in list literal"
+      | _ -> err $"Expected type {showType t}, but found list literal"
 
-  | Var i -> lookupVar i env >>= fun t' -> mustBe t t' &> T (t', Var i)
+  | Var i -> lookupVar i >>= fun t' -> mustBe t t' &> T (t', Var i)
 
   | Read e ->
-      typeCheckExpr env String e >>= fun e ->
+      typeCheckExpr String e >>= fun e ->
       mustNotBeList "read" t &> T (t, Read e)
 
   | Length e ->
       mustBe t Int *>
-      typeInferExpr env e >>= fun e ->
+      typeInferExpr e >>= fun e ->
 
       match ty e with
-      | String | List _ -> Ok <| T (Int, Length e)
-      | _ -> Error "Can only take the length of lists and strings"
+      | String | List _ -> pure' <| T (Int, Length e)
+      | _ -> err "Can only take the length of lists and strings"
 
   | Subscript (a, i) ->
-      typeCheckExpr env (List t) a >>= fun a ->
-      typeCheckExpr env Int i <&> fun i ->
+      typeCheckExpr (List t) a >>= fun a ->
+      typeCheckExpr Int i <&> fun i ->
       T (t, Subscript (a, i))
 
   | Not e ->
       mustBe t Bool *>
-      typeCheckExpr env Bool e <&> fun e ->
+      typeCheckExpr Bool e <&> fun e ->
       T (Bool, Not e)
 
   | Negate e ->
       mustBeNumeric t *>
-      typeCheckExpr env t e <&> fun e ->
+      typeCheckExpr t e <&> fun e ->
       T (t, Negate e)
 
   | Append (a, b) ->
       mustBe t String *>
-      typeCheckExpr env String a >>= fun a ->
-      typeCheckExpr env String b <&> fun b ->
+      typeCheckExpr String a >>= fun a ->
+      typeCheckExpr String b <&> fun b ->
       T (String, Append (a, b))
 
   | Pow (a, b) ->
       mustBe t Float *>
-      typeCheckExpr env Float a >>= fun a ->
-      typeCheckExpr env Float b <&> fun b ->
+      typeCheckExpr Float a >>= fun a ->
+      typeCheckExpr Float b <&> fun b ->
       T (t, Pow (a, b))
 
   | Arith (op, a, b) ->
       mustBeNumeric t *>
-      typeCheckExpr env t a >>= fun a ->
-      typeCheckExpr env t b <&> fun b ->
+      typeCheckExpr t a >>= fun a ->
+      typeCheckExpr t b <&> fun b ->
       T (t, Arith (op, a, b))
 
   | Comp (op, a, b) ->
       mustBe t Bool *>
-      typeInferExpr env a >>= fun a ->
+      typeInferExpr a >>= fun a ->
       mustNotBeList "compared" (ty a) *>
-      typeCheckExpr env (ty a) b <&> fun b ->
+      typeCheckExpr (ty a) b <&> fun b ->
       T (Bool, Comp (op, a, b))
 
   | Logic (op, a, b) ->
       mustBe t Bool *>
-      typeCheckExpr env Bool a >>= fun a ->
-      typeCheckExpr env Bool b <&> fun b ->
+      typeCheckExpr Bool a >>= fun a ->
+      typeCheckExpr Bool b <&> fun b ->
       T (Bool, Logic (op, a, b))
 
-and typeInferExpr env (U expr) =
+and typeInferExpr (U expr) =
   match expr with
-  | BoolLit b -> Ok <| T (Bool, BoolLit b)
-  | IntLit i -> Ok <| T (Int, IntLit i)
-  | FloatLit f -> Ok <| T (Float, FloatLit f)
-  | StringLit s -> Ok <| T (String, StringLit s)
+  | BoolLit b -> pure' <| T (Bool, BoolLit b)
+  | IntLit i -> pure' <| T (Int, IntLit i)
+  | FloatLit f -> pure' <| T (Float, FloatLit f)
+  | StringLit s -> pure' <| T (String, StringLit s)
 
-  | ListLit [] -> Error "Cannot infer the type of empty list literals; Please add a type annotation"
+  | ListLit [] -> err "Cannot infer the type of empty list literals; Please add a type annotation"
   | ListLit es ->
-      traverse (typeInferExpr env) es >>= function
+      traverse typeInferExpr es >>= function
         | (T (t, _) :: ts) as es when List.forall (fun e -> ty e = t) ts ->
-            Ok <| T (List t, ListLit es)
-        | _ -> Error "Mismatched types in list literal"
+            pure' <| T (List t, ListLit es)
+        | _ -> err "Mismatched types in list literal"
 
-  | Var i -> lookupVar i env <&> fun t -> T (t, Var i)
+  | Var i -> lookupVar i <&> fun t -> T (t, Var i)
 
-  | Read _ -> Error "Can't infer the type of read-expressions; Please add a type annotation"
+  | Read _ -> err "Can't infer the type of read-expressions; Please add a type annotation"
 
   | Length e ->
-      typeInferExpr env e >>= fun e ->
+      typeInferExpr e >>= fun e ->
 
       match ty e with
-      | String | List _ -> Ok <| T (Int, Length e)
-      | _ -> Error "Can only take the length of lists and strings"
+      | String | List _ -> pure' <| T (Int, Length e)
+      | _ -> err "Can only take the length of lists and strings"
 
   | Subscript (a, i) ->
-      typeInferExpr env a >>= fun a ->
+      typeInferExpr a >>= fun a ->
       match ty a with
       | List t ->
-          typeCheckExpr env Int i <&> fun i ->
+          typeCheckExpr Int i <&> fun i ->
           T (t, Subscript (a, i))
-      | _ -> Error "Cannot subscript into non-list values"
+      | _ -> err "Cannot subscript into non-list values"
 
   | Not e ->
-      typeCheckExpr env Bool e <&> fun e ->
+      typeCheckExpr Bool e <&> fun e ->
       T (Bool, Not e)
 
   | Negate e ->
-      typeInferExpr env e >>= fun e ->
+      typeInferExpr e >>= fun e ->
       mustBeNumeric (ty e) &>
       T (ty e, Negate e)
 
   | Append (a, b) ->
-      typeCheckExpr env String a >>= fun a ->
-      typeCheckExpr env String b <&> fun b ->
+      typeCheckExpr String a >>= fun a ->
+      typeCheckExpr String b <&> fun b ->
       T (String, Append (a, b))
 
   | Pow (a, b) ->
-      typeCheckExpr env Float a >>= fun a ->
-      typeCheckExpr env Float b <&> fun b ->
+      typeCheckExpr Float a >>= fun a ->
+      typeCheckExpr Float b <&> fun b ->
       T (Float, Pow (a, b))
 
   | Arith (op, a, b) ->
-      typeInferExpr env a >>= fun a ->
+      typeInferExpr a >>= fun a ->
       let t = ty a
       mustBeNumeric t *>
-      typeCheckExpr env t b <&> fun b ->
+      typeCheckExpr t b <&> fun b ->
       T (t, Arith (op, a, b))
 
   | Comp (op, a, b) ->
-      typeInferExpr env a >>= fun a ->
+      typeInferExpr a >>= fun a ->
       let t = ty a
       mustNotBeList "compared" t *>
-      typeCheckExpr env t b <&> fun b ->
+      typeCheckExpr t b <&> fun b ->
       T (Bool, Comp (op, a, b))
 
   | Logic (op, a, b) ->
-      typeCheckExpr env Bool a >>= fun a ->
-      typeCheckExpr env Bool b <&> fun b ->
+      typeCheckExpr Bool a >>= fun a ->
+      typeCheckExpr Bool b <&> fun b ->
       T (Bool, Logic (op, a, b))
 
-let rec typeCheckStmt env inLoop stmt =
+let typeCheckExpr' t = local fst << typeCheckExpr t
+let typeInferExpr' = local fst << typeInferExpr
+
+let mustBeUndeclared i =
+  asks (fst >> Map.containsKey i) >>= function
+    | true -> err $"Variable \"{i}\" already declared"
+    | _ -> pure' ()
+
+let mustBeInLoop lbl =
+  asks snd >>= function
+    | false -> err $"{lbl} can only be used inside a loop."
+    | _ -> pure' ()
+
+let rec typeCheckStmt stmt =
   match stmt with
-  | Let (i, _, _) when Map.containsKey i env -> Error $"Variable \"{i}\" already declared"
-  | Let (i, Some t, e) ->
-      typeCheckExpr env t e <&> fun e ->
-      (Map.add i t env, Let (i, Some t, e))
-  | Let (i, None, e) ->
-      typeInferExpr env e <&> fun e ->
+  | Let (i, t, e, s) ->
+      mustBeUndeclared i *>
+      let tcExpr =
+        match t with
+        | Some t -> typeCheckExpr' t
+        | None -> typeInferExpr'
+
+      tcExpr e >>= fun e ->
       let t = ty e
-      (Map.add i t env, Let (i, Some t, e))
+
+      local (first <| Map.add i t) (typeCheckStmt s) >>= fun s ->
+      pure' <| Let (i, Some t, e, s)
 
   | Assign (lhs, e) ->
       mustBeLValue lhs *>
-      typeInferExpr env lhs >>= fun lhs ->
+      typeInferExpr' lhs >>= fun lhs ->
       let t = ty lhs
-      typeCheckExpr env t e <&> fun e ->
-      (env, Assign (lhs, e))
+      typeCheckExpr' t e <&> fun e ->
+      Assign (lhs, e)
 
   | Push (lhs, es) ->
       mustBeLValue lhs *>
-      typeInferExpr env lhs >>= fun lhs ->
+      typeInferExpr' lhs >>= fun lhs ->
       match ty lhs with
       | List t ->
-          traverse (typeCheckExpr env t) es <&> fun es ->
-          (env, Push (lhs, es))
-      | _ -> Error "Can only push onto lists"
+          traverse (typeCheckExpr' t) es <&> fun es ->
+          Push (lhs, es)
+      | _ -> err "Can only push onto lists"
 
   | Pop e ->
-      typeInferExpr env e >>= fun e ->
+      typeInferExpr' e >>= fun e ->
       match ty e with
-      | List t -> Ok (env, Pop e)
-      | _ -> Error "Can only pop from lists"
+      | List t -> pure' (Pop e)
+      | _ -> err "Can only pop from lists"
 
   | Write es ->
-      traverse (typeInferExpr env) es >>= fun es ->
+      traverse typeInferExpr' es >>= fun es ->
       traverse_ (fun (T (t, _)) -> mustNotBeList "written" t) es &>
-      (env, Write es)
+      Write es
 
   | If (c, then', else') ->
-      typeCheckExpr env Bool c >>= fun c ->
-      typeCheckStmts env inLoop then' >>= fun (_, then') ->
-      typeCheckStmts env inLoop else' >>= fun (_, else') ->
-      Ok (env, If (c, then', else'))
+      typeCheckExpr' Bool c >>= fun c ->
+      typeCheckStmt then' >>= fun then' ->
+      typeCheckStmt else' <&> fun else' ->
+      If (c, then', else')
 
   | While (c, s) ->
-      typeCheckExpr env Bool c >>= fun c ->
-      typeCheckStmts env true s <&> fun (_, s) ->
-      (env, While (c, s))
+      typeCheckExpr' Bool c >>= fun c ->
+      local (second (const' true)) (typeCheckStmt s) <&> fun s ->
+      While (c, s)
 
   | DoWhile (s, c) ->
-      typeCheckStmts env true s >>= fun (env', s) ->
-      typeCheckExpr env' Bool c <&> fun c ->
-      (env, DoWhile (s, c))
+      local (second (const' true)) (typeCheckStmt s) >>= fun s ->
+      typeCheckExpr' Bool c <&> fun c ->
+      DoWhile (s, c)
 
-  | For (i, _, _, _, _) when Map.containsKey i env -> Error "For loop counter must be a new variable"
   | For (i, a, down, b, s) ->
-      typeCheckExpr env Int a >>= fun a ->
-      typeCheckExpr env Int b >>= fun b ->
-      typeCheckStmts (Map.add i Int env) true s <&> fun (_, s) ->
-      (env, For (i, a, down, b, s))
+      mustBeUndeclared i *>
+      typeCheckExpr' Int a >>= fun a ->
+      typeCheckExpr' Int b >>= fun b ->
+      local (fun (m, _) -> (Map.add i Int m, true)) (typeCheckStmt s) <&> fun s ->
+      For (i, a, down, b, s)
 
-  | Break when inLoop -> Ok (env, Break)
-  | Break -> Error "Break can only be used inside a loop."
+  | Break -> mustBeInLoop "Break" &> Break
+  | Continue -> mustBeInLoop "Continue" &> Continue
 
-  | Continue when inLoop -> Ok (env, Continue)
-  | Continue -> Error "Continue can only be used inside a loop."
+  | Seq (a, b) -> curry Seq <!> typeCheckStmt a <*> typeCheckStmt b
+  | Nop -> pure' Nop
 
-and typeCheckStmts env inLoop = function
-  | [] -> Ok (env, [])
-  | stmt :: stmts ->
-      typeCheckStmt env inLoop stmt >>= fun (env, stmt) ->
-      typeCheckStmts env inLoop stmts <&> fun (env, stmts) -> (env, stmt :: stmts)
-
-let typeCheck stmts =
-  typeCheckStmts Map.empty false stmts
-  <&> snd
+let typeCheck stmt =
+  typeCheckStmt stmt
+  |> runTC (Map.empty, false)
   |> Result.mapError ((+) "Type error: ")

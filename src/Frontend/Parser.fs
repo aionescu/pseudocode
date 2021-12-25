@@ -143,31 +143,30 @@ typeRef.Value <- choice [listType; primType] <* ws
 
 let lvalue = withSubscript (var <* ws)
 
+let stmt, stmtRef = createParserForwardedToRef ()
+
 let let' =
-  curry3 Let
+  curry4 Let
   <!> (pstring "let" *> ws *> ident <* ws)
   <*> opt (colon *> type')
   <*> (equals *> expr)
+  <*> (stmtSep *> stmt)
 
-let assign = curry Assign <!> (lvalue <* equals) <*> expr
+let assign = curry Assign <!> (lvalue <* equals) <*> (expr <* stmtSep)
 
 let push =
   curry Push
   <!> (pstring "push" *> ws *> lvalue)
-  <*> many1 (comma *> expr)
+  <*> many1 (comma *> expr) <* stmtSep
 
-let pop = pstring "pop" *> ws *> lvalue <&> Pop
+let pop = pstring "pop" *> ws *> lvalue <* stmtSep <&> Pop
 
-let write = pstring "write" *> ws *> sepBy expr comma <&> Write
+let write = pstring "write" *> ws *> sepBy1 expr comma <* stmtSep <&> Write
 
-let break' = pstring "break" *> ws &> Break
-let continue' = pstring "continue" *> ws &> Continue
+let break' = pstring "break" *> ws *> stmtSep &> Break
+let continue' = pstring "continue" *> ws *> stmtSep &> Continue
 
-let stmt, stmtRef = createParserForwardedToRef ()
-
-let stmts = many (stmt <* stmtSep)
-
-let end' = pstring "end" *> ws
+let end' = pstring "end" *> ws *> stmtSep
 
 let if' =
   let if' = pstring "if" *> ws
@@ -175,28 +174,25 @@ let if' =
   let else' = pstring "else" *> ws
 
   let elseIf =
-    (else' *> if' *> expr) .>>. (then' *> stmtSep *> stmts)
+    (else' *> if' *> expr) .>>. (then' *> stmtSep *> stmt)
 
-  let rec unrollIf c t es e =
-    match es with
-    | [] -> If (c, t, e)
-    | (c', t') :: es -> If (c, t, [unrollIf c' t' es e])
+  let rec unrollIf c t es e = If (c, t, List.foldBack (uncurry (curry3 If)) es e)
 
   unrollIf
   <!> (if' *> expr)
-  <*> (then' *> stmtSep *> stmts)
+  <*> (then' *> stmtSep *> stmt)
   <*> many (attempt elseIf)
-  <*> ((else' *> stmtSep *> stmts) <|>% [] <* end')
+  <*> ((else' *> stmtSep *> stmt) <|>% Nop <* end')
 
 let while' =
   curry While
   <!> (pstring "while" *> ws *> expr)
-  <*> (pstring "do" *> ws *> stmtSep *> stmts <* end')
+  <*> (pstring "do" *> ws *> stmtSep *> stmt <* end')
 
 let doWhile =
   curry DoWhile
-  <!> (pstring "do" *> ws *> stmtSep *> stmts)
-  <*> (pstring "while" *> ws *> expr)
+  <!> (pstring "do" *> ws *> stmtSep *> stmt)
+  <*> (pstring "while" *> ws *> expr <* stmtSep)
 
 let for' =
   curry5 For
@@ -204,12 +200,14 @@ let for' =
   <*> (equals *> expr)
   <*> ((pstring "down" *> ws &> true) <|>% false)
   <*> (pstring "to" *> ws *> expr)
-  <*> (pstring "do" *> ws *> stmtSep *> stmts <* end')
+  <*> (pstring "do" *> ws *> stmtSep *> stmt <* end')
 
-stmtRef.Value <-
-  choice' [doWhile; for';  while'; if'; write; push; pop; assign; let'; break'; continue']
+let stmtSimple =
+  choice' [let'; doWhile; for'; while'; if'; write; push; pop; assign; break'; continue']
 
-let program: Program Parser = wsMulti *> stmts <* eof
+stmtRef.Value <- many1 stmtSimple <&> foldr1 (curry Seq) <|>% Nop
+
+let program: Stmt<Id, UExpr> Parser = wsMulti *> stmt <* eof
 
 let parse (name, code) =
   parse program name code

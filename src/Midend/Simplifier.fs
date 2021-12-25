@@ -47,7 +47,8 @@ let rec simplifyExpr (T (t, e)) =
 
 let rec simplifyStmt stmt =
   match stmt with
-  | Let (i, _, e)
+  | Let (_, None, _, _) -> panic ()
+  | Let (i, Some t, e, s) -> simplifyExpr e @ [SetVar i] @ simplifyStmt s @ [ClearVar (i, t)]
 
   | Assign (T (_, Var i), e) -> simplifyExpr e @ [SetVar i]
   | Assign (T (t, Subscript (a, i)), e) ->
@@ -74,9 +75,9 @@ let rec simplifyStmt stmt =
       let writeSingle e = simplifyExpr e @ [Write <| ty e]
       List.collect writeSingle es @ [WriteLine]
 
-  | Stmt.If (c, t, e) -> simplifyExpr c @ [If (simplifyStmts t, simplifyStmts e)]
-  | Stmt.While (c, s) -> [While (simplifyExpr c, simplifyStmts s)]
-  | Stmt.DoWhile (s, c) -> [DoWhile (simplifyStmts s, simplifyExpr c)]
+  | Stmt.If (c, t, e) -> simplifyExpr c @ [If (simplifyStmt t, simplifyStmt e)]
+  | Stmt.While (c, s) -> [While (simplifyExpr c, simplifyStmt s)]
+  | Stmt.DoWhile (s, c) -> [DoWhile (simplifyStmt s, simplifyExpr c)]
 
   | Stmt.For (i, a, down, b, s) ->
       let comp, arith =
@@ -87,11 +88,12 @@ let rec simplifyStmt stmt =
 
       let cond = [LoadVar i] @ simplifyExpr b @ [Comp (comp, false)]
       let update = [LoadVar i; PushInt 1; Arith arith; SetVar i]
-      simplifyExpr a @ [SetVar i; For (cond, simplifyStmts s, update)]
+      simplifyExpr a @ [SetVar i; For (cond, simplifyStmt s, update)]
 
   | Stmt.Break -> [Break]
   | Stmt.Continue -> [Continue]
 
-and simplifyStmts = List.collect simplifyStmt
+  | Seq (a, b) -> simplifyStmt a @ simplifyStmt b
+  | Nop -> []
 
-let simplify (vars, stmts) = vars, simplifyStmts stmts
+let simplify (vars, stmt) = vars, simplifyStmt stmt

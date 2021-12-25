@@ -13,6 +13,7 @@ type Instr =
 
   | LoadVar of Idx
   | SetVar of Idx
+  | ClearVar of Idx * Type
   | Dup
 
   | LoadIndex of Type
