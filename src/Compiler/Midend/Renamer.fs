@@ -71,11 +71,11 @@ let scoped m =
 let rec renameStmt stmt =
   get () >>= fun { env = env } ->
   match stmt with
-  | Let (_, None, _, _) -> panic ()
   | Let (i, Some t, e, s) ->
       allocVar t i >>= fun i ->
       renameStmt s <&> fun s ->
       Let (i, Some t, renameExpr env e, s)
+  | Let _ -> panic ()
 
   | Assign (i, e) -> pure' <| Assign (renameExpr env i, renameExpr env e)
   | Push (i, es) -> pure' <| Push (renameExpr env i, List.map (renameExpr env) es)

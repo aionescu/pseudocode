@@ -96,4 +96,4 @@ let rec simplifyStmt stmt =
   | Seq (a, b) -> simplifyStmt a @ simplifyStmt b
   | Nop -> []
 
-let simplify (vars, stmt) = vars, simplifyStmt stmt
+let simplify: Type list * _ -> _ = second simplifyStmt
