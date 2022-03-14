@@ -51,7 +51,7 @@ let listSetItem t = (listType t).GetProperty("Item", [|typeof<int>|]).SetMethod
 let listAdd t = (listType t).GetMethod("Add", [|ilType t|])
 let listRemoveAt t = (listType t).GetMethod("RemoveAt", [|typeof<int>|])
 
-let allocVars (il: IL) = List.iter (fun v -> il.DeclareLocal(ilType v) |> ignore)
+let allocVars (il: IL) = List.iter (ilType >> il.DeclareLocal >> ignore)
 
 let rec emitInstr (il: IL) breakLbl contLbl =
   function
@@ -163,11 +163,11 @@ let rec emitInstr (il: IL) breakLbl contLbl =
       let doneLbl = il.DefineLabel()
 
       il.Emit(OpCodes.Brfalse, elseLbl)
-      List.iter (emitInstr il breakLbl contLbl) t
+      emitInstr il breakLbl contLbl t
       il.Emit(OpCodes.Br, doneLbl)
 
       il.MarkLabel(elseLbl)
-      List.iter (emitInstr il breakLbl contLbl) f
+      emitInstr il breakLbl contLbl f
       il.MarkLabel(doneLbl)
 
   | While (c, s) ->
@@ -175,10 +175,10 @@ let rec emitInstr (il: IL) breakLbl contLbl =
       let doneLbl = il.DefineLabel()
 
       il.MarkLabel(loopLbl)
-      List.iter (emitInstr il breakLbl contLbl) c
+      emitInstr il breakLbl contLbl c
 
       il.Emit(OpCodes.Brfalse, doneLbl)
-      List.iter (emitInstr il doneLbl loopLbl) s
+      emitInstr il doneLbl loopLbl s
 
       il.Emit(OpCodes.Br, loopLbl)
       il.MarkLabel(doneLbl)
@@ -188,8 +188,8 @@ let rec emitInstr (il: IL) breakLbl contLbl =
       let doneLbl = il.DefineLabel()
 
       il.MarkLabel(loopLbl)
-      List.iter (emitInstr il doneLbl loopLbl) s
-      List.iter (emitInstr il breakLbl contLbl) c
+      emitInstr il doneLbl loopLbl s
+      emitInstr il breakLbl contLbl c
       il.Emit(OpCodes.Brtrue, loopLbl)
       il.MarkLabel(doneLbl)
 
@@ -199,13 +199,13 @@ let rec emitInstr (il: IL) breakLbl contLbl =
       let doneLbl = il.DefineLabel()
 
       il.MarkLabel(loopLbl)
-      List.iter (emitInstr il breakLbl contLbl) c
+      emitInstr il breakLbl contLbl c
 
       il.Emit(OpCodes.Brfalse, doneLbl)
-      List.iter (emitInstr il doneLbl updateLbl) s
+      emitInstr il doneLbl updateLbl s
 
       il.MarkLabel(updateLbl)
-      List.iter (emitInstr il breakLbl contLbl) u
+      emitInstr il breakLbl contLbl u
 
       il.Emit(OpCodes.Br, loopLbl)
       il.MarkLabel(doneLbl)
@@ -213,7 +213,12 @@ let rec emitInstr (il: IL) breakLbl contLbl =
   | Break -> il.Emit(OpCodes.Br, breakLbl)
   | Continue -> il.Emit(OpCodes.Br, contLbl)
 
-let compileAndRun (vars, instrs) =
+  | Nop -> ()
+  | Seq (a, b) ->
+      emitInstr il breakLbl contLbl a
+      emitInstr il breakLbl contLbl b
+
+let compileAndRun (vars, instr) =
   let asm = AssemblyBuilder.DefineDynamicAssembly(AssemblyName("Pseudocode"), AssemblyBuilderAccess.Run)
   let mdl = asm.DefineDynamicModule("Module")
   let ty = mdl.DefineType("Program")
@@ -222,7 +227,7 @@ let compileAndRun (vars, instrs) =
   let il = mtd.GetILGenerator()
 
   allocVars il vars
-  List.iter (emitInstr il defaultLbl defaultLbl) instrs
+  emitInstr il defaultLbl defaultLbl instr
   il.Emit(OpCodes.Ret)
 
   let ty = ty.CreateType()

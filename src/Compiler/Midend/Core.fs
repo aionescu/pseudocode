@@ -35,10 +35,13 @@ type Instr =
   | Arith of ArithOp
   | Comp of CompOp * isString: bool
 
-  | If of Instr list * Instr list
-  | While of Instr list * Instr list
-  | DoWhile of Instr list * Instr list
-  | For of Instr list * Instr list * Instr list
+  | If of Instr * Instr
+  | While of Instr * Instr
+  | DoWhile of Instr * Instr
+  | For of Instr * Instr * Instr
 
   | Break
   | Continue
+
+  | Nop
+  | Seq of Instr * Instr

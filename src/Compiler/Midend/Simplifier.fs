@@ -6,12 +6,14 @@ open Compiler.Midend.Core
 
 let panic () = failwith "Panic in Simplifier"
 
+let seq' = foldr (curry Seq) Nop
+
 let rec simplifyExpr (T (t, e)) =
   match e with
-  | BoolLit b -> [PushBool b]
-  | IntLit i -> [PushInt i]
-  | FloatLit f  -> [PushFloat f]
-  | StringLit s -> [PushString s]
+  | BoolLit b -> PushBool b
+  | IntLit i -> PushInt i
+  | FloatLit f  -> PushFloat f
+  | StringLit s -> PushString s
 
   | ListLit es ->
       let t =
@@ -19,65 +21,60 @@ let rec simplifyExpr (T (t, e)) =
         | List t -> t
         | _ -> panic ()
 
-      let setElem e = [Dup] @ simplifyExpr e @ [Push <| ty e]
-      [NewList t] @ List.collect setElem es
+      let setElem e = [Dup; simplifyExpr e; Push <| ty e]
+      seq' (NewList t :: List.collect setElem es)
 
-  | Var i -> [LoadVar i]
+  | Var i -> LoadVar i
 
-  | Expr.Read e -> simplifyExpr e @ [Write String; Read t]
+  | Expr.Read e -> seq' [simplifyExpr e; Write String; Read t]
   | Expr.Length e ->
       let t =
         match ty e with
         | List t -> Some t
         | _ -> None
 
-      simplifyExpr e @ [Length t]
+      seq' [simplifyExpr e; Length t]
 
-  | Subscript (a, i) -> simplifyExpr a @ simplifyExpr i @ [LoadIndex t]
-  | Expr.Not e -> simplifyExpr e @ [Not]
-  | Expr.Negate e -> simplifyExpr e @ [Negate]
+  | Subscript (a, i) -> seq' [simplifyExpr a; simplifyExpr i; LoadIndex t]
+  | Expr.Not e -> seq' [simplifyExpr e; Not]
+  | Expr.Negate e -> seq' [simplifyExpr e; Negate]
 
-  | Expr.Append (a, b) -> simplifyExpr a @ simplifyExpr b @ [Append]
-  | Expr.Pow (a, b) -> simplifyExpr a @ simplifyExpr b @ [Pow]
-  | Expr.Arith (op, a, b) -> simplifyExpr a @ simplifyExpr b @ [Arith op]
-  | Expr.Comp (op, a, b) -> simplifyExpr a @ simplifyExpr b @ [Comp (op, t = String)]
+  | Expr.Append (a, b) -> seq' [simplifyExpr a; simplifyExpr b; Append]
+  | Expr.Pow (a, b) -> seq' [simplifyExpr a; simplifyExpr b; Pow]
+  | Expr.Arith (op, a, b) -> seq' [simplifyExpr a; simplifyExpr b; Arith op]
+  | Expr.Comp (op, a, b) -> seq' [simplifyExpr a; simplifyExpr b; Comp (op, t = String)]
 
-  | Logic (And, a, b) -> simplifyExpr a @ [If (simplifyExpr b, [PushBool false])]
-  | Logic (Or, a, b) -> simplifyExpr a @ [If ([PushBool true], simplifyExpr b)]
+  | Logic (And, a, b) -> seq' [simplifyExpr a; If (simplifyExpr b, PushBool false)]
+  | Logic (Or, a, b) -> seq' [simplifyExpr a; If (PushBool true, simplifyExpr b)]
 
 let rec simplifyStmt stmt =
   match stmt with
   | Let (_, None, _, _) -> panic ()
-  | Let (i, Some t, e, s) -> simplifyExpr e @ [SetVar i] @ simplifyStmt s @ [ClearVar (i, t)]
+  | Let (i, Some t, e, s) -> seq' [simplifyExpr e; SetVar i; simplifyStmt s; ClearVar (i, t)]
 
-  | Assign (T (_, Var i), e) -> simplifyExpr e @ [SetVar i]
-  | Assign (T (t, Subscript (a, i)), e) ->
-      simplifyExpr a @ simplifyExpr i @ simplifyExpr e @ [SetIndex t]
+  | Assign (T (_, Var i), e) -> seq' [simplifyExpr e; SetVar i]
+  | Assign (T (t, Subscript (a, i)), e) -> seq' [simplifyExpr a; simplifyExpr i; simplifyExpr e; SetIndex t]
   | Assign _ -> panic ()
 
   | Stmt.Push (i, es) ->
-      let setElem e = [Dup] @ simplifyExpr e @ [Push <| ty e]
+      let setElem e = [Dup; simplifyExpr e; Push <| ty e]
 
       match List.splitAt (List.length es - 1) es with
-      | es, [e] ->
-          simplifyExpr i
-          @ List.collect setElem es
-          @ simplifyExpr e
-          @ [Push <| ty e]
+      | es, [e] -> seq' <| simplifyExpr i :: (List.collect setElem es @ [simplifyExpr e; Push <| ty e])
       | _ -> panic ()
 
   | Stmt.Pop i ->
       match ty i with
-      | List t -> simplifyExpr i @ [Pop t]
+      | List t -> seq' [simplifyExpr i; Pop t]
       | _ -> panic ()
 
   | Stmt.Write es ->
-      let writeSingle e = simplifyExpr e @ [Write <| ty e]
-      List.collect writeSingle es @ [WriteLine]
+      let writeSingle e = [simplifyExpr e; Write <| ty e]
+      seq' <| List.collect writeSingle es @ [WriteLine]
 
-  | Stmt.If (c, t, e) -> simplifyExpr c @ [If (simplifyStmt t, simplifyStmt e)]
-  | Stmt.While (c, s) -> [While (simplifyExpr c, simplifyStmt s)]
-  | Stmt.DoWhile (s, c) -> [DoWhile (simplifyStmt s, simplifyExpr c)]
+  | Stmt.If (c, t, e) -> seq' [simplifyExpr c; If (simplifyStmt t, simplifyStmt e)]
+  | Stmt.While (c, s) -> While (simplifyExpr c, simplifyStmt s)
+  | Stmt.DoWhile (s, c) -> DoWhile (simplifyStmt s, simplifyExpr c)
 
   | Stmt.For (i, a, down, b, s) ->
       let comp, arith =
@@ -86,14 +83,14 @@ let rec simplifyStmt stmt =
         else
           Lte, Add
 
-      let cond = [LoadVar i] @ simplifyExpr b @ [Comp (comp, false)]
-      let update = [LoadVar i; PushInt 1; Arith arith; SetVar i]
-      simplifyExpr a @ [SetVar i; For (cond, simplifyStmt s, update)]
+      let cond = seq' [LoadVar i; simplifyExpr b; Comp (comp, false)]
+      let update = seq' [LoadVar i; PushInt 1; Arith arith; SetVar i]
+      seq' [simplifyExpr a; SetVar i; For (cond, simplifyStmt s, update)]
 
-  | Stmt.Break -> [Break]
-  | Stmt.Continue -> [Continue]
+  | Stmt.Break -> Break
+  | Stmt.Continue -> Continue
 
-  | Seq (a, b) -> simplifyStmt a @ simplifyStmt b
-  | Nop -> []
+  | Stmt.Seq (a, b) -> seq' [simplifyStmt a; simplifyStmt b]
+  | Stmt.Nop -> Nop
 
 let simplify: Type list * _ -> _ = second simplifyStmt
