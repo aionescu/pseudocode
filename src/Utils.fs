@@ -33,3 +33,5 @@ let foldr f z xs = List.foldBack f xs z
 let explain e = function
   | None -> Error e
   | Some a -> Ok a
+
+let (>=>) f g = f >> Result.bind g
