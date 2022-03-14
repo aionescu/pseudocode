@@ -26,10 +26,7 @@ let second f (a, b) = (a, f b)
 
 let cons x xs = x :: xs
 
-let rec foldr1 f = function
-  | [] -> failwith "foldr1: Empty list"
-  | [x] -> x
-  | x :: xs -> f x (foldr1 f xs)
+let foldr f z xs = List.foldBack f xs z
 
 // Result
 

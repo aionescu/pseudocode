@@ -209,7 +209,7 @@ let for' =
 let stmtSimple =
   choice' [let'; doWhile; for'; while'; if'; write; push; pop; assign; break'; continue']
 
-stmtRef.Value <- many1 stmtSimple |>> foldr1 (curry Seq) <|>% Nop
+stmtRef.Value <- many stmtSimple |>> foldr (curry Seq) Nop
 
 let program: Stmt<Id, UExpr> Parser = wsMulti >>. stmt .>> eof
 
