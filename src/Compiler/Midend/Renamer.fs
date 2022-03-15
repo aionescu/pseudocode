@@ -27,12 +27,12 @@ let rec renameExpr env = mapEx <| fun expr ->
     | Comp (op, a, b) -> Comp (op, renameExpr env a, renameExpr env b)
     | Logic (op, a, b) -> Logic (op, renameExpr env a, renameExpr env b)
 
-type RenamerState = {
-  env: Map<Id, Idx>
-  vars: Map<Idx, Type * bool>
-  count: int
-  crrScope: (Id * Idx) list
-}
+type RenamerState =
+  { env: Map<Id, Idx>
+    vars: Map<Idx, Type * bool>
+    count: int
+    crrScope: (Id * Idx) list
+  }
 
 let findLive ty = Map.tryFindKey (fun _ (t, live) -> ty = t && not live)
 
