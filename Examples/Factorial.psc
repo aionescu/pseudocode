@@ -1,5 +1,4 @@
 function factorial(n: Int): Int
-  write "factorial of ", n
   if n < 2 then
     return n
   else
@@ -8,6 +7,5 @@ function factorial(n: Int): Int
 end
 
 program
-  write "Running"
-  let x = factorial(5)
+  write factorial(read "n: ")
 end
