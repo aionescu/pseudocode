@@ -15,10 +15,10 @@ let rec alwaysReturns = function
   | _ -> false
 
 let flowAnalysisFn fnSig body =
-  match alwaysReturns body, fnSig.retType with
-  | true, _ -> pure' body
-  | false, None -> pure' <| Seq (body, Return None)
-  | _ -> err $"Not all code paths return a value in function \"{fnSig.name}\""
+  if alwaysReturns body || fnSig.retType = None then
+    pure' body
+  else
+    err $"Not all code paths return a value in function \"{fnSig.name}\""
 
 let flowAnalysis p =
   traverseFns flowAnalysisFn p

@@ -238,6 +238,7 @@ let compileFn (fns: Map<Id, MethodBuilder>) { name = name } (vars, instr) =
 
   allocVars il vars
   emitInstr fns il defaultLbl defaultLbl instr
+  il.Emit(OpCodes.Ret)
 
 let compileProgram { fns = fns } =
   let asm = AssemblyBuilder.DefineDynamicAssembly(AssemblyName("Pseudocode"), AssemblyBuilderAccess.Run)

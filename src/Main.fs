@@ -24,7 +24,6 @@ let runCompiler args =
   |> Result.bind (parse >=> typeCheck >=> flowAnalysis)
   |> Result.map (rename >> simplify)
   |> Result.bind sanityCheck
-  |> Result.map (fun p -> printfn $"{p}"; p)
   |> Result.map (compileProgram >> runCompiledProgram)
 
 [<EntryPoint>]
