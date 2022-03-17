@@ -224,10 +224,12 @@ and typeInferExpr (U expr) =
       | None -> err "Cannot use functions with no return type as expressions"
 
 let mustBeUndeclared i =
-  asks (fun e -> Map.containsKey i e.vars || lookup i e.crrFn.args <> None)
-  >>= function
-    | true -> err $"Variable \"{i}\" already declared"
-    | _ -> pure' ()
+  ask >>= fun { vars = vars; crrFn = { args = args }; fns = fns } ->
+
+  if Map.containsKey i vars || lookup i args <> None || Map.containsKey i fns then
+    err $"Identifer \"{i}\" is already declared"
+  else
+    pure' ()
 
 let mustBeInLoop lbl =
   asks (fun e -> e.inLoop) >>= function
