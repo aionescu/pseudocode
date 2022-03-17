@@ -1,16 +1,16 @@
-module Compiler.Frontend.TypeChecker
+module Compiler.Frontend.TypeCheck
 
 open Utils
 open Monad.TC
 open Compiler.Frontend.AST
 
-let panic () = failwith "Panic in TypeChecker"
+let panic () = failwith "Panic in TypeCheck"
 
 type Env =
-  { vars: Map<Id, Type>
-    fns: Map<Id, FnSig>
+  { fns: Map<Id, FnSig>
+    vars: Map<Id, Type>
     inLoop: bool
-    crrFn: FnSig
+    retType: Type option
   }
 
 let mustBeNumeric = function
@@ -20,6 +20,10 @@ let mustBeNumeric = function
 let mustNotBeList reason = function
   | List _ -> err $"Values of list types cannot be {reason}"
   | _ -> pure' ()
+
+let lookupVar v =
+  asks (fun e -> Map.tryFind v e.vars)
+  >>= (explain $"Undeclared variable \"{v}\"" >> lift)
 
 let lookupFn f =
   asks (fun e -> Map.tryFind f e.fns)
@@ -36,15 +40,6 @@ let rec mustBeLValue (U expr) =
   | Subscript (a, _) -> mustBeLValue a
   | Var _ -> pure' ()
   | _ -> err "Expected lvalue"
-
-let typeCheckVar v =
-  ask >>= fun { vars = vars; crrFn = { args = args } } ->
-  match Map.tryFind v vars with
-  | Some t -> pure' <| T (t, Var v)
-  | None ->
-      match lookup v args with
-      | Some t -> pure' <| T (t, Arg v)
-      | None -> err $"Undeclared variable \"{v}\""
 
 let rec typeCheckArgs { name = name; args = fArgs } args =
   let types = List.map snd fArgs
@@ -78,8 +73,7 @@ and typeCheckExpr t (U expr) =
             err "Mismatched types in list literal"
       | _ -> err $"Expected type {showType t}, but found list literal"
 
-  | Var i -> typeCheckVar i >>= fun (T (t', _) as v) -> mustBe t t' &> v
-  | Arg _ -> panic ()
+  | Var i -> lookupVar i >>= fun t' -> mustBe t t' &> T (t', Var i)
 
   | Read e ->
       typeCheckExpr String e >>= fun e ->
@@ -159,8 +153,7 @@ and typeInferExpr (U expr) =
             pure' <| T (List t, ListLit es)
         | _ -> err "Mismatched types in list literal"
 
-  | Var i -> typeCheckVar i
-  | Arg _ -> panic ()
+  | Var i -> lookupVar i <&> fun t -> T (t, Var i)
 
   | Read _ -> err "Can't infer the type of read-expressions; Please add a type annotation"
 
@@ -224,9 +217,9 @@ and typeInferExpr (U expr) =
       | None -> err "Cannot use functions with no return type as expressions"
 
 let mustBeUndeclared i =
-  ask >>= fun { vars = vars; crrFn = { args = args }; fns = fns } ->
+  ask >>= fun { vars = vars; fns = fns } ->
 
-  if Map.containsKey i vars || lookup i args <> None || Map.containsKey i fns then
+  if Map.containsKey i vars || Map.containsKey i fns then
     err $"Identifer \"{i}\" is already declared"
   else
     pure' ()
@@ -304,7 +297,7 @@ let rec typeCheckStmt stmt: TC<string, Env, _> =
   | Continue -> mustBeInLoop "Continue" &> Continue
 
   | Return e ->
-      asks (fun e -> e.crrFn.retType) >>= fun ret ->
+      asks (fun e -> e.retType) >>= fun ret ->
 
       match e, ret with
       | Some e, Some t -> typeCheckExpr t e <&> (Some >> Return)
@@ -321,16 +314,16 @@ let rec typeCheckStmt stmt: TC<string, Env, _> =
   | Seq (a, b) -> curry Seq <!> typeCheckStmt a <*> typeCheckStmt b
   | Nop -> pure' Nop
 
-let typeCheckFn fnSig body =
+let typeCheckFn { args = args; retType = retType } body =
   typeCheckStmt body
-  |> local (fun e -> { e with crrFn = fnSig })
+  |> local (fun e -> { e with vars = Map.ofList args; retType = retType })
 
 let typeCheck p =
   traverseFns typeCheckFn p
   |> runTC
-    { vars = Map.empty
-      fns = Map.map (const' fst) p.fns
+    { fns = Map.map (const' fst) p.fns
+      vars = Map.empty
       inLoop = false
-      crrFn = fst <| Map.find "program" p.fns
+      retType = None
     }
   |> Result.mapError ((+) "Type error: ")

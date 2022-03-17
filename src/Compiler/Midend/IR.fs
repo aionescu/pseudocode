@@ -2,8 +2,6 @@ module Compiler.Midend.IR
 
 open Compiler.Frontend.AST
 
-type Idx = int
-
 type Instr =
   | PushBool of bool
   | PushInt of int
@@ -11,13 +9,10 @@ type Instr =
   | PushString of string
   | NewList of Type
 
-  | LoadVar of Idx
-  | SetVar of Idx
-  | ClearVar of Idx * Type
+  | Let of Id * Type * Instr * Instr
+  | LoadVar of Id
+  | SetVar of Id
   | Dup
-
-  | LoadArg of Idx
-  | SetArg of Idx
 
   | LoadIndex of Type
   | SetIndex of Type

@@ -6,11 +6,10 @@ open System.IO
 open Utils
 open Compiler.Frontend.Parser
 open Compiler.Frontend.CheckDefs
-open Compiler.Frontend.TypeChecker
+open Compiler.Frontend.TypeCheck
 open Compiler.Frontend.FlowAnalysis
-open Compiler.Midend.Renamer
-open Compiler.Midend.Simplifier
-open Compiler.Midend.SanityCheck
+open Compiler.Midend.Lowering
+open Compiler.Midend.TypeCheckIR
 open Compiler.Backend.Codegen
 
 let getInput = function
@@ -23,7 +22,7 @@ let getInput = function
 let runCompiler args =
   getInput args
   |> Result.bind (parse >=> checkDefs >=> typeCheck >=> flowAnalysis)
-  |> Result.bind (rename >> simplify >> sanityCheck)
+  |> Result.bind (lower >> typeCheckIR)
   |> Result.map (compileProgram >> runCompiledProgram)
 
 [<EntryPoint>]

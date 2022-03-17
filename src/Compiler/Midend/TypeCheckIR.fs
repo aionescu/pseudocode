@@ -1,29 +1,24 @@
-module Compiler.Midend.SanityCheck
+module Compiler.Midend.TypeCheckIR
 
 open Utils
 open Monad.TC
 open Compiler.Frontend.AST
-open Compiler.Frontend.TypeChecker
+open Compiler.Frontend.TypeCheck
 open Compiler.Midend.IR
 
-type SanityCheckEnv =
+type TypeCheckIREnv =
   { fns: Map<Id, FnSig>
-    vars: Type list
-    args: Type list
+    vars: Map<Id, Type>
     retType: Type option
     inLoop: bool
     stack: Type list
   }
 
 let lookupVar v =
-  asks (fun e -> List.tryItem v e.vars)
+  asks (fun e -> Map.tryFind v e.vars)
   >>= (explain $"Variable \"{v}\" not allocated" >> lift)
 
-let lookupArg v =
-  asks (fun e -> List.tryItem v e.args)
-  >>= (explain $"Argument \"{v}\" does not exist" >> lift)
-
-let sanityCheckCall f stack =
+let typeCheckCall f stack =
   asks (fun e -> e.fns[f]) >>= fun { args = args; retType = retType } ->
   let argc = List.length args
   let args = List.map snd args
@@ -34,7 +29,7 @@ let sanityCheckCall f stack =
   else
     pure' <| Option.toList retType @ List.skip argc stack
 
-let rec sanityCheckInstr instr =
+let rec typeCheckInstr instr =
   ask >>= fun { retType = retType; inLoop = inLoop; stack = stack } ->
   match instr, stack with
   | PushBool _, _ -> pure' (Bool :: stack)
@@ -42,20 +37,22 @@ let rec sanityCheckInstr instr =
   | PushFloat _, _ -> pure' (Float :: stack)
   | PushString _, _ -> pure' (String :: stack)
   | NewList t, stack -> pure' (List t :: stack)
-  | LoadVar v, _ -> lookupVar v <&> fun t -> t :: stack
 
+  | Let (i, t, e, s), [] ->
+      typeCheckInstr e >>= function
+        | [t'] ->
+            mustBe t t'
+            *> local
+              (fun e -> { e with vars = Map.add i t e.vars })
+              (typeCheckInstr s)
+        | _ -> err "Invalid Let initializer"
+
+  | LoadVar v, _ -> lookupVar v <&> fun t -> t :: stack
   | SetVar v, t :: stack ->
       lookupVar v >>= fun v ->
       mustBe v t &> stack
 
-  | ClearVar (v, t), [] -> lookupVar v >>= fun v -> mustBe v t &> []
   | Dup, t :: stack -> pure' (t :: t :: stack)
-
-  | LoadArg v, _ -> lookupArg v <&> fun t -> t :: stack
-
-  | SetArg v, t :: stack ->
-      lookupArg v >>= fun v ->
-      mustBe v t &> stack
 
   | LoadIndex t, Int :: List t' :: stack when t = t' -> pure' (t :: stack)
   | SetIndex t, t' :: Int :: List t'' :: stack when t = t' && t = t'' -> pure' stack
@@ -114,17 +111,17 @@ let rec sanityCheckInstr instr =
       | t' :: stack, Some t -> mustBe t t' &> stack
       | _ -> err "Return type mismatch"
 
-  | Call f, _ -> sanityCheckCall f stack
+  | Call f, _ -> typeCheckCall f stack
 
   | Seq (t, s), _ ->
-      sanityCheckInstr t >>= fun stack' ->
-      local (fun e -> { e with stack = stack' }) <| sanityCheckInstr s
+      typeCheckInstr t >>= fun stack' ->
+      local (fun e -> { e with stack = stack' }) <| typeCheckInstr s
 
   | Nop, _ -> pure' stack
 
   | _ -> err $"Invalid IR instruction:\n{instr}\n{stack}"
 
-and withEmptyStack = local (fun e -> { e with stack = [] }) << sanityCheckInstr
+and withEmptyStack = local (fun e -> { e with stack = [] }) << typeCheckInstr
 
 and ensureEmptyStack inLoop label instr =
   withEmptyStack instr
@@ -133,19 +130,18 @@ and ensureEmptyStack inLoop label instr =
     | [] -> pure' ()
     | _ -> err $"{label} resulted in non-empty stack"
 
-let sanityCheckFn { name = name; args = args; retType = retType } (vars, instr) =
+let typeCheckFn { name = name; args = args; retType = retType } instr =
   ensureEmptyStack false name instr
-  |> local (fun e -> { e with vars = vars; args = List.map snd args; retType = retType })
-  &> (vars, instr)
+  |> local (fun e -> { e with vars = Map.ofList args; retType = retType })
+  &> instr
 
-let sanityCheck p =
-  traverseFns sanityCheckFn p
+let typeCheckIR p =
+  traverseFns typeCheckFn p
   |> runTC
     { fns = Map.map (const' fst) p.fns
-      vars = []
-      args = []
+      vars = Map.empty
       retType = None
       inLoop = false
       stack = []
     }
-  |> Result.mapError ((+) "IR sanityCheck error: ")
+  |> Result.mapError ((+) "IR type error: ")

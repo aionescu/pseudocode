@@ -16,13 +16,12 @@
     <Compile Include="src/Compiler/Frontend/AST.fs"/>
     <Compile Include="src/Compiler/Frontend/Parser.fs"/>
     <Compile Include="src/Compiler/Frontend/CheckDefs.fs"/>
-    <Compile Include="src/Compiler/Frontend/TypeChecker.fs"/>
+    <Compile Include="src/Compiler/Frontend/TypeCheck.fs"/>
     <Compile Include="src/Compiler/Frontend/FlowAnalysis.fs"/>
 
     <Compile Include="src/Compiler/Midend/IR.fs"/>
-    <Compile Include="src/Compiler/Midend/Renamer.fs"/>
-    <Compile Include="src/Compiler/Midend/Simplifier.fs"/>
-    <Compile Include="src/Compiler/Midend/SanityCheck.fs"/>
+    <Compile Include="src/Compiler/Midend/Lowering.fs"/>
+    <Compile Include="src/Compiler/Midend/TypeCheckIR.fs"/>
 
     <Compile Include="src/Compiler/Backend/Codegen.fs"/>
 

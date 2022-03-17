@@ -35,14 +35,13 @@ type LogicOp =
   | And
   | Or
 
-type Expr<'id, 'e> =
+type Expr<'e> =
   | BoolLit of bool
   | IntLit of int
   | FloatLit of float
   | StringLit of string
   | ListLit of 'e list
-  | Var of 'id
-  | Arg of 'id
+  | Var of Id
   | Read of 'e
   | Length of 'e
   | Subscript of 'e * 'e
@@ -55,8 +54,8 @@ type Expr<'id, 'e> =
   | Logic of LogicOp * 'e * 'e
   | FnCall of Id * 'e list
 
-type UExpr = U of Expr<Id, UExpr>
-type TExpr<'id> = T of Type * Expr<'id, TExpr<'id>>
+type UExpr = U of Expr<UExpr>
+type TExpr = T of Type * Expr<TExpr>
 
 let unU (U e) = e
 let unT (T (t, e)) = (t, e)
@@ -64,21 +63,21 @@ let ty (T (t, _)) = t
 let ex (T (_, e)) = e
 let mapEx f (T (t, e)) = T (t, f e)
 
-type Stmt<'id, 'e> =
-  | Let of 'id * Type option * 'e * Stmt<'id, 'e>
+type Stmt<'e> =
+  | Let of Id * Type option * 'e * Stmt<'e>
   | Assign of 'e * 'e
   | Push of 'e * 'e list
   | Pop of 'e
   | Write of 'e list
-  | If of 'e * Stmt<'id, 'e> * Stmt<'id, 'e>
-  | While of 'e * Stmt<'id, 'e>
-  | DoWhile of Stmt<'id, 'e> * 'e
-  | For of 'id * 'e * bool * 'e * Stmt<'id, 'e>
+  | If of 'e * Stmt<'e> * Stmt<'e>
+  | While of 'e * Stmt<'e>
+  | DoWhile of Stmt<'e> * 'e
+  | For of Id * 'e * bool * 'e * Stmt<'e>
   | Break
   | Continue
   | Return of 'e option
   | FnCallStmt of Id * 'e list
-  | Seq of Stmt<'id, 'e> * Stmt<'id, 'e>
+  | Seq of Stmt<'e> * Stmt<'e>
   | Nop
 
 type FnSig =

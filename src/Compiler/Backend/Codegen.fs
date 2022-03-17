@@ -13,8 +13,6 @@ let unsupported () = failwith "Instruction is not yet supported"
 
 type IL = ILGenerator
 
-let defaultLbl = Unchecked.defaultof<_>
-
 let consoleReadLine = typeof<Console>.GetMethod("ReadLine", [||])
 let intParse = typeof<int>.GetMethod("Parse", [|typeof<string>|])
 let floatParse = typeof<float>.GetMethod("Parse", [|typeof<string>|])
@@ -52,10 +50,19 @@ let listSetItem t = (listType t).GetProperty("Item", [|typeof<int>|]).SetMethod
 let listAdd t = (listType t).GetMethod("Add", [|ilType t|])
 let listRemoveAt t = (listType t).GetMethod("RemoveAt", [|typeof<int>|])
 
-let allocVars (il: IL) = List.iter (ilType >> il.DeclareLocal >> ignore)
+type EmitEnv =
+  { fns: Map<Id, MethodBuilder>
+    vars: Map<Id, LocalBuilder>
+    args: Id list
+    il: ILGenerator
+    breakLbl: Label
+    contLbl: Label
+  }
 
-let rec emitInstr (fns: Map<_, _>) (il: IL) breakLbl contLbl =
-  function
+let rec emitInstr env instr =
+  let { fns = fns; vars = vars; args = args; il = il; breakLbl = breakLbl; contLbl = contLbl } = env
+
+  match instr with
   | PushBool b -> il.Emit(if b then OpCodes.Ldc_I4_1 else OpCodes.Ldc_I4_0)
   | PushInt i -> il.Emit(OpCodes.Ldc_I4, i)
   | PushFloat f -> il.Emit(OpCodes.Ldc_R8, f)
@@ -63,18 +70,34 @@ let rec emitInstr (fns: Map<_, _>) (il: IL) breakLbl contLbl =
 
   | NewList t -> il.Emit(OpCodes.Newobj, listCtor t)
 
-  | LoadVar i -> il.Emit(OpCodes.Ldloc, i)
-  | SetVar i -> il.Emit(OpCodes.Stloc, i)
+  | Let (i, t, e, s) ->
+      let ilType = ilType t
 
-  | ClearVar (i, t) ->
-      if not (ilType t).IsValueType then
+      il.BeginScope()
+      let l = il.DeclareLocal(ilType)
+
+      emitInstr env e
+      il.Emit(OpCodes.Stloc, l)
+
+      emitInstr { env with vars = Map.add i l vars } s
+
+      if not ilType.IsValueType then
         il.Emit(OpCodes.Ldnull)
-        il.Emit(OpCodes.Stloc, i)
+        il.Emit(OpCodes.Stloc, l)
+
+      il.EndScope()
+
+  | LoadVar i ->
+      match Map.tryFind i vars with
+      | Some local -> il.Emit(OpCodes.Ldloc, local)
+      | None -> il.Emit(OpCodes.Ldarg, List.findIndex ((=) i) args)
+
+  | SetVar i ->
+      match Map.tryFind i vars with
+      | Some local -> il.Emit(OpCodes.Stloc, local)
+      | None -> il.Emit(OpCodes.Starg, List.findIndex ((=) i) args)
 
   | Dup -> il.Emit(OpCodes.Dup)
-
-  | LoadArg i -> il.Emit(OpCodes.Ldarg, i)
-  | SetArg i -> il.Emit(OpCodes.Starg, i)
 
   | LoadIndex t -> il.Emit(OpCodes.Callvirt, listGetItem t)
   | SetIndex t -> il.Emit(OpCodes.Callvirt, listSetItem t)
@@ -167,11 +190,11 @@ let rec emitInstr (fns: Map<_, _>) (il: IL) breakLbl contLbl =
       let doneLbl = il.DefineLabel()
 
       il.Emit(OpCodes.Brfalse, elseLbl)
-      emitInstr fns il breakLbl contLbl t
+      emitInstr env t
       il.Emit(OpCodes.Br, doneLbl)
 
       il.MarkLabel(elseLbl)
-      emitInstr fns il breakLbl contLbl f
+      emitInstr env f
       il.MarkLabel(doneLbl)
 
   | While (c, s) ->
@@ -179,10 +202,10 @@ let rec emitInstr (fns: Map<_, _>) (il: IL) breakLbl contLbl =
       let doneLbl = il.DefineLabel()
 
       il.MarkLabel(loopLbl)
-      emitInstr fns il breakLbl contLbl c
+      emitInstr env c
 
       il.Emit(OpCodes.Brfalse, doneLbl)
-      emitInstr fns il doneLbl loopLbl s
+      emitInstr { env with breakLbl = doneLbl; contLbl = loopLbl } s
 
       il.Emit(OpCodes.Br, loopLbl)
       il.MarkLabel(doneLbl)
@@ -192,8 +215,9 @@ let rec emitInstr (fns: Map<_, _>) (il: IL) breakLbl contLbl =
       let doneLbl = il.DefineLabel()
 
       il.MarkLabel(loopLbl)
-      emitInstr fns il doneLbl loopLbl s
-      emitInstr fns il breakLbl contLbl c
+      emitInstr { env with breakLbl = doneLbl; contLbl = loopLbl } s
+
+      emitInstr env c
       il.Emit(OpCodes.Brtrue, loopLbl)
       il.MarkLabel(doneLbl)
 
@@ -203,13 +227,13 @@ let rec emitInstr (fns: Map<_, _>) (il: IL) breakLbl contLbl =
       let doneLbl = il.DefineLabel()
 
       il.MarkLabel(loopLbl)
-      emitInstr fns il breakLbl contLbl c
+      emitInstr env c
 
       il.Emit(OpCodes.Brfalse, doneLbl)
-      emitInstr fns il doneLbl updateLbl s
+      emitInstr { env with breakLbl = doneLbl; contLbl = updateLbl } s
 
       il.MarkLabel(updateLbl)
-      emitInstr fns il breakLbl contLbl u
+      emitInstr env u
 
       il.Emit(OpCodes.Br, loopLbl)
       il.MarkLabel(doneLbl)
@@ -222,8 +246,8 @@ let rec emitInstr (fns: Map<_, _>) (il: IL) breakLbl contLbl =
 
   | Nop -> ()
   | Seq (a, b) ->
-      emitInstr fns il breakLbl contLbl a
-      emitInstr fns il breakLbl contLbl b
+      emitInstr env a
+      emitInstr env b
 
 let defineFn (ty: TypeBuilder) { name = name; args = args; retType = retType } =
   let args = List.map (snd >> ilType) args
@@ -232,15 +256,23 @@ let defineFn (ty: TypeBuilder) { name = name; args = args; retType = retType } =
   let attrs = MethodAttributes.Private ||| MethodAttributes.HideBySig ||| MethodAttributes.Static
   ty.DefineMethod(name, attrs, retType, List.toArray args)
 
-let compileFn (fns: Map<_, MethodBuilder>) { name = name } (vars, instr) =
+let compileFn (fns: Map<_, MethodBuilder>) { name = name; args = args } instr =
   let mtd = fns[name]
   let il = mtd.GetILGenerator()
 
-  allocVars il vars
-  emitInstr fns il defaultLbl defaultLbl instr
+  emitInstr
+    { fns = fns
+      vars = Map.empty
+      args = List.map fst args
+      il = il
+      breakLbl = Unchecked.defaultof<_>
+      contLbl = Unchecked.defaultof<_>
+    }
+    instr
+
   il.Emit(OpCodes.Ret)
 
-let compileProgram { fns = fns } =
+let compileProgram ({ fns = fns }: _ Program) =
   let asm = AssemblyBuilder.DefineDynamicAssembly(AssemblyName("Pseudocode"), AssemblyBuilderAccess.Run)
   let mdl = asm.DefineDynamicModule("Module")
   let ty = mdl.DefineType("Program")
