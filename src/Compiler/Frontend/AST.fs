@@ -86,12 +86,12 @@ type FnSig =
     retType: Type option
   }
 
-type 'b Program =
+type Program<'b> =
   { fns: Map<Id, FnSig * 'b>
   }
 
 let mapFns f { fns = fns } =
-  { fns = Map.map (fun _ (fnSig, body) -> fnSig, f fnSig body) fns }
+  { fns = mapVals (fun (fnSig, body) -> fnSig, f fnSig body) fns }
 
 let traverseFns f { fns = fns } =
   fns

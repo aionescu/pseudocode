@@ -249,7 +249,7 @@ let rec emitInstr env instr =
       emitInstr env a
       emitInstr env b
 
-let defineFn (ty: TypeBuilder) { name = name; args = args; retType = retType } =
+let defineFn (ty: TypeBuilder) { name = name; args = args; retType = retType } _ =
   let args = List.map (snd >> ilType) args
   let retType = option typeof<Void> ilType retType
 
@@ -272,13 +272,13 @@ let compileFn (fns: Map<_, MethodBuilder>) { name = name; args = args } instr =
 
   il.Emit(OpCodes.Ret)
 
-let compileProgram ({ fns = fns }: _ Program) =
+let compileProgram p =
   let asm = AssemblyBuilder.DefineDynamicAssembly(AssemblyName("Pseudocode"), AssemblyBuilderAccess.Run)
   let mdl = asm.DefineDynamicModule("Module")
   let ty = mdl.DefineType("Program")
 
-  let mtds = Map.map (const' <| (defineFn ty << fst)) fns
-  Map.iter (const' <| uncurry (compileFn mtds)) fns
+  let fns = mapVals snd <| (mapFns (defineFn ty) p).fns
+  mapFns (compileFn fns) p |> ignore
 
   ty.CreateType()
 

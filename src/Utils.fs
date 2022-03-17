@@ -28,7 +28,9 @@ let cons x xs = x :: xs
 
 let foldr f z xs = List.foldBack f xs z
 
-let lookup x = List.tryFind (fst >> (=) x) >> Option.map snd
+// Map
+
+let mapVals f = Map.map (const' f)
 
 // Option
 

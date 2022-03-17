@@ -321,7 +321,7 @@ let typeCheckFn { args = args; retType = retType } body =
 let typeCheck p =
   traverseFns typeCheckFn p
   |> runTC
-    { fns = Map.map (const' fst) p.fns
+    { fns = mapVals fst p.fns
       vars = Map.empty
       inLoop = false
       retType = None
