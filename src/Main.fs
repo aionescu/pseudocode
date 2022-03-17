@@ -5,6 +5,7 @@ open System.IO
 
 open Utils
 open Compiler.Frontend.Parser
+open Compiler.Frontend.CheckDefs
 open Compiler.Frontend.TypeChecker
 open Compiler.Frontend.FlowAnalysis
 open Compiler.Midend.Renamer
@@ -21,9 +22,8 @@ let getInput = function
 
 let runCompiler args =
   getInput args
-  |> Result.bind (parse >=> typeCheck >=> flowAnalysis)
-  |> Result.map (rename >> simplify)
-  |> Result.bind sanityCheck
+  |> Result.bind (parse >=> checkDefs >=> typeCheck >=> flowAnalysis)
+  |> Result.bind (rename >> simplify >> sanityCheck)
   |> Result.map (compileProgram >> runCompiledProgram)
 
 [<EntryPoint>]

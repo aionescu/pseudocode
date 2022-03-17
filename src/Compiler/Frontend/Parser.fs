@@ -235,26 +235,7 @@ let function' = fnSig .>> stmtSep .>>. stmt .>> end'
 
 let program = wsMulti >>. many function' .>> eof
 
-let mkProgram fns =
-  let duplicates =
-    List.groupBy (fun ({ name = n }, _) -> n) fns
-    |> List.filter (fun (_, l) -> List.length l > 1)
-    |> List.map (fun (name, _) -> name)
-
-  match duplicates with
-  | name :: _ -> Result.Error $"Duplicate definition for function \"{name}\""
-  | [] ->
-      let map =
-        fns
-        |> List.map (fun ({ name = name }, _ as fn) -> name, fn)
-        |> Map.ofList
-
-      match Map.tryFind "program" map with
-      | None -> Result.Error "Missing program definition"
-      | Some ({ args = []; retType = None }, _) -> Result.Ok { fns = map }
-      | _ -> Result.Error "Invalid signature for \"program\" function"
-
 let parse (name, code) =
   match runParserOnString program () name code with
   | Failure (e, _, _) -> Result.Error ("Parser error:\n" + e)
-  | Success (a, _, _) -> mkProgram a |> Result.mapError ((+) "Error: ")
+  | Success (a, _, _) -> Result.Ok a
