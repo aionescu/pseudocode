@@ -1,6 +1,6 @@
-module Compiler.Midend.Core
+module Compiler.Midend.IR
 
-open Compiler.Frontend.Syntax
+open Compiler.Frontend.AST
 
 type Idx = int
 

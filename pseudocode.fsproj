@@ -13,12 +13,12 @@
     <Compile Include="src/Monad/State.fs"/>
     <Compile Include="src/Monad/TC.fs"/>
 
-    <Compile Include="src/Compiler/Frontend/Syntax.fs"/>
+    <Compile Include="src/Compiler/Frontend/AST.fs"/>
     <Compile Include="src/Compiler/Frontend/Parser.fs"/>
     <Compile Include="src/Compiler/Frontend/TypeChecker.fs"/>
     <Compile Include="src/Compiler/Frontend/FlowAnalysis.fs"/>
 
-    <Compile Include="src/Compiler/Midend/Core.fs"/>
+    <Compile Include="src/Compiler/Midend/IR.fs"/>
     <Compile Include="src/Compiler/Midend/SanityCheck.fs"/>
     <Compile Include="src/Compiler/Midend/Renamer.fs"/>
     <Compile Include="src/Compiler/Midend/Simplifier.fs"/>

@@ -4,9 +4,9 @@ module Compiler.Midend.Renamer
 
 open Utils
 open Monad.State
-open Compiler.Frontend.Syntax
+open Compiler.Frontend.AST
 
-type Idx = Core.Idx
+type Idx = IR.Idx
 
 let panic () = failwith "Panic in Renamer"
 

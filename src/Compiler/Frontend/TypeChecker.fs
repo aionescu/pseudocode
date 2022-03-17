@@ -2,7 +2,7 @@ module Compiler.Frontend.TypeChecker
 
 open Utils
 open Monad.TC
-open Compiler.Frontend.Syntax
+open Compiler.Frontend.AST
 
 let panic () = failwith "Panic in TypeChecker"
 

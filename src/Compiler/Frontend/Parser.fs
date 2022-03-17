@@ -3,7 +3,7 @@ module Compiler.Frontend.Parser
 open FParsec
 
 open Utils
-open Compiler.Frontend.Syntax
+open Compiler.Frontend.AST
 
 type Parser<'a> = Parser<'a, unit>
 

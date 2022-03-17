@@ -5,8 +5,8 @@ open System.Reflection
 open System.Reflection.Emit
 
 open Utils
-open Compiler.Frontend.Syntax
-open Compiler.Midend.Core
+open Compiler.Frontend.AST
+open Compiler.Midend.IR
 
 let panic () = failwith "Panic in Codegen"
 let unsupported () = failwith "Instruction is not yet supported"

@@ -1,4 +1,4 @@
-module Compiler.Frontend.Syntax
+module Compiler.Frontend.AST
 
 open Utils
 open Monad.TC

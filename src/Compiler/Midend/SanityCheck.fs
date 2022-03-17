@@ -2,9 +2,9 @@ module Compiler.Midend.SanityCheck
 
 open Utils
 open Monad.TC
-open Compiler.Frontend.Syntax
+open Compiler.Frontend.AST
 open Compiler.Frontend.TypeChecker
-open Compiler.Midend.Core
+open Compiler.Midend.IR
 
 type SanityCheckEnv =
   { fns: Map<Id, FnSig>
@@ -63,7 +63,7 @@ let rec sanityCheckInstr instr =
   | Pop t, List t' :: stack when t = t' -> pure' stack
 
   | Read t, _ -> mustNotBeList "read" t &> t :: stack
-  | Write t, t' :: stack when t = t' -> mustNotBeList "written in Core" t &>  stack
+  | Write t, t' :: stack when t = t' -> mustNotBeList "written in IR" t &>  stack
   | WriteLine, _ -> pure' stack
 
   | Length None, String :: stack -> pure' (Int :: stack)
@@ -122,7 +122,7 @@ let rec sanityCheckInstr instr =
 
   | Nop, _ -> pure' stack
 
-  | _ -> err $"Invalid Core instruction:\n{instr}\n{stack}"
+  | _ -> err $"Invalid IR instruction:\n{instr}\n{stack}"
 
 and withEmptyStack = local (fun e -> { e with stack = [] }) << sanityCheckInstr
 
@@ -148,4 +148,4 @@ let sanityCheck p =
       inLoop = false
       stack = []
     }
-  |> Result.mapError ((+) "Core sanityCheck error: ")
+  |> Result.mapError ((+) "IR sanityCheck error: ")
