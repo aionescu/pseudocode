@@ -24,7 +24,7 @@ let lookupArg v =
   >>= (explain $"Argument \"{v}\" does not exist" >> lift)
 
 let sanityCheckCall f stack =
-  asks (fun e -> Map.find f e.fns) >>= fun { args = args; retType = retType } ->
+  asks (fun e -> e.fns[f]) >>= fun { args = args; retType = retType } ->
   let argc = List.length args
   let args = List.map snd args
   let stackArgs = List.rev <| List.take argc stack

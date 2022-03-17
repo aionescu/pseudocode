@@ -10,7 +10,7 @@ type Idx = IR.Idx
 
 let panic () = failwith "Panic in Renamer"
 
-let rec renameExpr vars args =
+let rec renameExpr (vars: Map<_, _>) args =
   let rec go = mapEx <| fun expr ->
     match expr with
     | BoolLit b -> BoolLit b
@@ -18,7 +18,7 @@ let rec renameExpr vars args =
     | FloatLit f -> FloatLit f
     | StringLit s -> StringLit s
     | ListLit es -> ListLit <| List.map go es
-    | Var i -> Var <| Map.find i vars
+    | Var i -> Var <| vars[i]
     | Arg i -> Arg <| List.findIndex ((=) i) args
     | Read e -> Read <| go e
     | Length e -> Length <| go e

@@ -54,7 +54,7 @@ let listRemoveAt t = (listType t).GetMethod("RemoveAt", [|typeof<int>|])
 
 let allocVars (il: IL) = List.iter (ilType >> il.DeclareLocal >> ignore)
 
-let rec emitInstr fns (il: IL) breakLbl contLbl =
+let rec emitInstr (fns: Map<_, _>) (il: IL) breakLbl contLbl =
   function
   | PushBool b -> il.Emit(if b then OpCodes.Ldc_I4_1 else OpCodes.Ldc_I4_0)
   | PushInt i -> il.Emit(OpCodes.Ldc_I4, i)
@@ -218,7 +218,7 @@ let rec emitInstr fns (il: IL) breakLbl contLbl =
   | Continue -> il.Emit(OpCodes.Br, contLbl)
   | Return -> il.Emit(OpCodes.Ret)
 
-  | Call f -> il.Emit(OpCodes.Call, Map.find f fns :> MethodInfo)
+  | Call f -> il.Emit(OpCodes.Call, fns[f] :> MethodInfo)
 
   | Nop -> ()
   | Seq (a, b) ->
@@ -232,8 +232,8 @@ let defineFn (ty: TypeBuilder) { name = name; args = args; retType = retType } =
   let attrs = MethodAttributes.Private ||| MethodAttributes.HideBySig ||| MethodAttributes.Static
   ty.DefineMethod(name, attrs, retType, List.toArray args)
 
-let compileFn (fns: Map<Id, MethodBuilder>) { name = name } (vars, instr) =
-  let mtd = Map.find name fns
+let compileFn (fns: Map<_, MethodBuilder>) { name = name } (vars, instr) =
+  let mtd = fns[name]
   let il = mtd.GetILGenerator()
 
   allocVars il vars
