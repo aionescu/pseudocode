@@ -10,7 +10,6 @@
   <ItemGroup>
     <Compile Include="src/Utils.fs"/>
 
-    <Compile Include="src/Monad/State.fs"/>
     <Compile Include="src/Monad/TC.fs"/>
 
     <Compile Include="src/Compiler/Frontend/AST.fs"/>

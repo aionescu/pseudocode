@@ -2,7 +2,6 @@ module Utils
 
 // Function
 
-let flip f a b = f b a
 let const' a _ = a
 
 let curry f a b = f (a, b)
@@ -17,10 +16,8 @@ let (>..) f g a b = g <| f a b
 // Pair
 
 let pair a b = (a, b)
-let swap (a, b) = (b, a)
 
-let first f (a, b) = (f a, b)
-let second f (a, b) = (a, f b)
+let swap (a, b) = (b, a)
 
 // List
 
