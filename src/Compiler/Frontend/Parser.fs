@@ -31,6 +31,8 @@ let colon = pchar ':' .>> ws
 
 let choice' ps = choice <| List.map attempt ps
 
+let btwn l r = between (pchar l .>> ws) (pchar r .>> ws)
+
 // Exprs
 
 let boolLit =
@@ -68,13 +70,14 @@ let stringLit: Parser<_> =
 let expr, exprRef = createParserForwardedToRef ()
 
 let listLit =
-  between (pchar '[' .>> ws) (pchar ']' .>> ws) (sepBy expr comma)
+  btwn '[' ']' (sepBy expr comma)
   |>> (ListLit >> U)
 
 let reserved =
   [ "let"; "end"; "if"; "then"; "else"; "while"; "do"; "for"; "down"; "to"
     "and"; "or"; "not"; "read"; "write"; "length"; "break"; "continue"
     "push"; "pop"; "Bool"; "Int"; "Float"; "String"; "True"; "False"
+    "return"; "function"; "program"
   ]
 
 let ident =
@@ -89,11 +92,14 @@ let ident =
 
 let var = ident |>> (Var >> U)
 
-let parensExpr = between (pchar '(' .>> ws) (pchar ')' .>> ws) expr
-let exprSimple = choice' [boolLit; numLit; stringLit; listLit; var; parensExpr] .>> ws
+let fnCallRaw = ident .>> ws .>>. btwn '(' ')' (sepBy expr comma)
+let fnCall = fnCallRaw |>> (FnCall >> U)
+
+let parensExpr = btwn '(' ')' expr
+let exprSimple = choice' [boolLit; numLit; stringLit; listLit; fnCall; var; parensExpr] .>> ws
 
 let withSubscript e =
-  let subscript = between (pchar '[' .>> ws) (pchar ']' .>> ws) expr
+  let subscript = btwn '[' ']' expr
   let unrollSubscript = List.fold <| curry (Subscript >> U)
 
   unrollSubscript <!> e <*> many subscript
@@ -140,7 +146,7 @@ let primType =
 
 let type', typeRef = createParserForwardedToRef ()
 
-let listType = between (pchar '[' .>> ws) (pchar ']' .>> ws) type' |>> List
+let listType = btwn '[' ']' type' |>> List
 typeRef.Value <- choice' [listType; primType] .>> ws
 
 // Stmts
@@ -169,6 +175,9 @@ let write = pstring "write" >>. ws >>. sepBy1 expr comma .>> stmtSep |>> Write
 
 let break' = pstring "break" >>. ws >>. stmtSep >>% Break
 let continue' = pstring "continue" >>. ws >>. stmtSep >>% Continue
+
+let return' = pstring "return" >>. ws >>. opt expr .>> stmtSep |>> Return
+let fnCallStmt = fnCallRaw .>> stmtSep |>> FnCallStmt
 
 let end' = pstring "end" >>. ws >>. stmtSep
 
@@ -207,13 +216,45 @@ let for' =
   <*> (pstring "do" >>. ws >>. stmtSep >>. stmt .>> end')
 
 let stmtSimple =
-  choice' [let'; doWhile; for'; while'; if'; write; push; pop; assign; break'; continue']
+  choice' [let'; doWhile; for'; while'; if'; write; push; pop; assign; break'; continue'; return'; fnCallStmt]
 
 stmtRef.Value <- many stmtSimple |>> foldr (curry Seq) Nop
 
-let program: Stmt<Id, UExpr> Parser = wsMulti >>. stmt .>> eof
+let fnSig =
+  let mkFnSig n a r = { name = n; args = a; retType = r }
+  let arg = ident .>> ws .>> colon .>>. type'
+  let args = btwn '(' ')' <| sepBy arg comma
+  let ret = opt (colon >>. type')
+
+  choice' [
+    pstring "program" >>. ws >>% mkFnSig "program" [] None
+    pstring "function" >>. ws >>. (mkFnSig <!> ident <*> args <*> ret)
+  ]
+
+let function' = fnSig .>> stmtSep .>>. stmt .>> end'
+
+let program = wsMulti >>. many function' .>> eof
+
+let mkProgram fns =
+  let duplicates =
+    List.groupBy (fun ({ name = n }, _) -> n) fns
+    |> List.filter (fun (_, l) -> List.length l > 1)
+    |> List.map (fun (name, _) -> name)
+
+  match duplicates with
+  | name :: _ -> Result.Error $"Duplicate definition for function \"{name}\""
+  | [] ->
+      let map =
+        fns
+        |> List.map (fun ({ name = name }, _ as fn) -> name, fn)
+        |> Map.ofList
+
+      match Map.tryFind "program" map with
+      | None -> Result.Error "Missing program definition"
+      | Some ({ args = []; retType = None }, _) -> Result.Ok { fns = map }
+      | _ -> Result.Error "Invalid signature for \"program\" function"
 
 let parse (name, code) =
   match runParserOnString program () name code with
-  | Success (a, _, _) -> Result.Ok a
   | Failure (e, _, _) -> Result.Error ("Parser error:\n" + e)
+  | Success (a, _, _) -> mkProgram a |> Result.mapError ((+) "Error: ")

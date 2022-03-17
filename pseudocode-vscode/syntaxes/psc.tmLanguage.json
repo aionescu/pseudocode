@@ -14,7 +14,7 @@
     "keywords": {
       "patterns": [{
         "name": "keyword.control.psc",
-        "match": "\\b(let|end|if|then|else|while|do|for|down|to|and|or|not|read|write|length|break|continue|push|pop)\\b"
+        "match": "\\b(let|end|if|then|else|while|do|for|down|to|and|or|not|read|write|length|break|continue|push|pop|return|function|program)\\b"
       }]
     },
     "numbers": {

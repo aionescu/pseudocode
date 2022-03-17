@@ -20,13 +20,14 @@ let getInput = function
 
 let runCompiler args =
   getInput args
-  |> Result.bind (parse >=> typeCheck)
-  |> Result.map (rename >> simplify)
-  |> Result.bind sanityCheck
-  |> Result.map compileAndRun
+  |> Result.bind parse
+  // |> Result.bind (parse >=> typeCheck)
+  // |> Result.map (rename >> simplify)
+  // |> Result.bind sanityCheck
+  // |> Result.map compileAndRun
 
 [<EntryPoint>]
 let main argv =
   match runCompiler argv with
   | Error e -> printfn $"{e}"; 1
-  | Ok () -> 0
+  | Ok a -> printfn $"{a}"; 1

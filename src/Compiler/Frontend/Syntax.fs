@@ -1,6 +1,5 @@
 module Compiler.Frontend.Syntax
 
-open System
 type Id = string
 
 type Type =
@@ -50,6 +49,7 @@ type Expr<'id, 'e> =
   | Arith of ArithOp * 'e * 'e
   | Comp of CompOp * 'e * 'e
   | Logic of LogicOp * 'e * 'e
+  | FnCall of Id * 'e list
 
 type UExpr = U of Expr<Id, UExpr>
 type TExpr<'id> = T of Type * Expr<'id, TExpr<'id>>
@@ -72,5 +72,17 @@ type Stmt<'id, 'e> =
   | For of 'id * 'e * bool * 'e * Stmt<'id, 'e>
   | Break
   | Continue
+  | Return of 'e option
+  | FnCallStmt of Id * 'e list
   | Seq of Stmt<'id, 'e> * Stmt<'id, 'e>
   | Nop
+
+type FnSig =
+  { name: Id
+    args: (Id * Type) list
+    retType: Type option
+  }
+
+type 'b Program =
+  { fns: Map<Id, FnSig * 'b>
+  }

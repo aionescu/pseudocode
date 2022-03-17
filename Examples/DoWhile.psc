@@ -1,13 +1,15 @@
-let i = 0
+program
+  let i = 0
 
-do
-  write i
-  i = i + 1
-while i <= 10
+  do
+    write i
+    i = i + 1
+  while i <= 10
 
-write "Done"
+  write "Done"
 
-while i >= 0 do
-  write i
-  i = i - 1
+  while i >= 0 do
+    write i
+    i = i - 1
+  end
 end
