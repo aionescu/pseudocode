@@ -1,5 +1,8 @@
 module Compiler.Frontend.Syntax
 
+open Utils
+open Monad.TC
+
 type Id = string
 
 type Type =
@@ -39,6 +42,7 @@ type Expr<'id, 'e> =
   | StringLit of string
   | ListLit of 'e list
   | Var of 'id
+  | Arg of 'id
   | Read of 'e
   | Length of 'e
   | Subscript of 'e * 'e
@@ -86,3 +90,11 @@ type FnSig =
 type 'b Program =
   { fns: Map<Id, FnSig * 'b>
   }
+
+let mapFns f { fns = fns } =
+  { fns = Map.map (fun _ (fnSig, body) -> fnSig, f fnSig body) fns }
+
+let traverseFns f { fns = fns } =
+  fns
+  |> traverseMap (fun (fnSig, body) -> pair fnSig <!> f fnSig body)
+  <&> fun fns -> { fns = fns }

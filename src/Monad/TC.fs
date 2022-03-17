@@ -49,6 +49,13 @@ let rec traverse f xs =
   | [] -> pure' []
   | x :: xs -> cons <!> f x <*> traverse f xs
 
+let rec traversePair f (a, b) = pair a <!> f b
+
+let rec traverseMap f xs =
+  Map.toList xs
+  |> traverse (traversePair f)
+  <&> Map.ofList
+
 let rec traverse_ f xs =
   match xs with
   | [] -> pure' ()

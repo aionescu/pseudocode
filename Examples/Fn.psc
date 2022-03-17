@@ -1,7 +1,12 @@
 function f(x: Int): Int
-  return x + 1
+  if x == 5 then
+    return x
+  else
+    return f(x + 1)
+  end
 end
 
 program
-  write f(2)
+  let x = f(2)
+  write x
 end

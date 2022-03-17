@@ -4,6 +4,7 @@ open System
 open System.Reflection
 open System.Reflection.Emit
 
+open Utils
 open Compiler.Frontend.Syntax
 open Compiler.Midend.Core
 
@@ -53,7 +54,7 @@ let listRemoveAt t = (listType t).GetMethod("RemoveAt", [|typeof<int>|])
 
 let allocVars (il: IL) = List.iter (ilType >> il.DeclareLocal >> ignore)
 
-let rec emitInstr (il: IL) breakLbl contLbl =
+let rec emitInstr fns (il: IL) breakLbl contLbl =
   function
   | PushBool b -> il.Emit(if b then OpCodes.Ldc_I4_1 else OpCodes.Ldc_I4_0)
   | PushInt i -> il.Emit(OpCodes.Ldc_I4, i)
@@ -71,6 +72,9 @@ let rec emitInstr (il: IL) breakLbl contLbl =
         il.Emit(OpCodes.Stloc, i)
 
   | Dup -> il.Emit(OpCodes.Dup)
+
+  | LoadArg i -> il.Emit(OpCodes.Ldarg, i)
+  | SetArg i -> il.Emit(OpCodes.Starg, i)
 
   | LoadIndex t -> il.Emit(OpCodes.Callvirt, listGetItem t)
   | SetIndex t -> il.Emit(OpCodes.Callvirt, listSetItem t)
@@ -163,11 +167,11 @@ let rec emitInstr (il: IL) breakLbl contLbl =
       let doneLbl = il.DefineLabel()
 
       il.Emit(OpCodes.Brfalse, elseLbl)
-      emitInstr il breakLbl contLbl t
+      emitInstr fns il breakLbl contLbl t
       il.Emit(OpCodes.Br, doneLbl)
 
       il.MarkLabel(elseLbl)
-      emitInstr il breakLbl contLbl f
+      emitInstr fns il breakLbl contLbl f
       il.MarkLabel(doneLbl)
 
   | While (c, s) ->
@@ -175,10 +179,10 @@ let rec emitInstr (il: IL) breakLbl contLbl =
       let doneLbl = il.DefineLabel()
 
       il.MarkLabel(loopLbl)
-      emitInstr il breakLbl contLbl c
+      emitInstr fns il breakLbl contLbl c
 
       il.Emit(OpCodes.Brfalse, doneLbl)
-      emitInstr il doneLbl loopLbl s
+      emitInstr fns il doneLbl loopLbl s
 
       il.Emit(OpCodes.Br, loopLbl)
       il.MarkLabel(doneLbl)
@@ -188,8 +192,8 @@ let rec emitInstr (il: IL) breakLbl contLbl =
       let doneLbl = il.DefineLabel()
 
       il.MarkLabel(loopLbl)
-      emitInstr il doneLbl loopLbl s
-      emitInstr il breakLbl contLbl c
+      emitInstr fns il doneLbl loopLbl s
+      emitInstr fns il breakLbl contLbl c
       il.Emit(OpCodes.Brtrue, loopLbl)
       il.MarkLabel(doneLbl)
 
@@ -199,41 +203,56 @@ let rec emitInstr (il: IL) breakLbl contLbl =
       let doneLbl = il.DefineLabel()
 
       il.MarkLabel(loopLbl)
-      emitInstr il breakLbl contLbl c
+      emitInstr fns il breakLbl contLbl c
 
       il.Emit(OpCodes.Brfalse, doneLbl)
-      emitInstr il doneLbl updateLbl s
+      emitInstr fns il doneLbl updateLbl s
 
       il.MarkLabel(updateLbl)
-      emitInstr il breakLbl contLbl u
+      emitInstr fns il breakLbl contLbl u
 
       il.Emit(OpCodes.Br, loopLbl)
       il.MarkLabel(doneLbl)
 
   | Break -> il.Emit(OpCodes.Br, breakLbl)
   | Continue -> il.Emit(OpCodes.Br, contLbl)
+  | Return -> il.Emit(OpCodes.Ret)
+
+  | Call f -> il.Emit(OpCodes.Call, Map.find f fns :> MethodInfo)
 
   | Nop -> ()
   | Seq (a, b) ->
-      emitInstr il breakLbl contLbl a
-      emitInstr il breakLbl contLbl b
+      emitInstr fns il breakLbl contLbl a
+      emitInstr fns il breakLbl contLbl b
 
-let compileAndRun (vars, instr) =
+let defineFn (ty: TypeBuilder) { name = name; args = args; retType = retType } =
+  let args = List.map (snd >> ilType) args
+  let retType = option typeof<Void> ilType retType
+
+  let attrs = MethodAttributes.Private ||| MethodAttributes.HideBySig ||| MethodAttributes.Static
+  ty.DefineMethod(name, attrs, retType, List.toArray args)
+
+let compileFn (fns: Map<Id, MethodBuilder>) { name = name } (vars, instr) =
+  let mtd = Map.find name fns
+  let il = mtd.GetILGenerator()
+
+  allocVars il vars
+  emitInstr fns il defaultLbl defaultLbl instr
+
+let compileProgram { fns = fns } =
   let asm = AssemblyBuilder.DefineDynamicAssembly(AssemblyName("Pseudocode"), AssemblyBuilderAccess.Run)
   let mdl = asm.DefineDynamicModule("Module")
   let ty = mdl.DefineType("Program")
 
-  let mtd = ty.DefineMethod("Main", MethodAttributes.Private ||| MethodAttributes.HideBySig ||| MethodAttributes.Static, typeof<Void>, [||])
-  let il = mtd.GetILGenerator()
+  let mtds = Map.map (const' <| (defineFn ty << fst)) fns
+  Map.iter (const' <| uncurry (compileFn mtds)) fns
 
-  allocVars il vars
-  emitInstr il defaultLbl defaultLbl instr
-  il.Emit(OpCodes.Ret)
+  ty.CreateType()
 
-  let ty = ty.CreateType()
-  let mtd = ty.GetMethod("Main", BindingFlags.NonPublic ||| BindingFlags.Static)
+let runCompiledProgram (ty: System.Type) =
+  let program = ty.GetMethod("program", BindingFlags.NonPublic ||| BindingFlags.Static)
 
-  try ignore <| mtd.Invoke(null, [||])
+  try ignore <| program.Invoke(null, [||])
   with :? TargetInvocationException as e ->
     printfn "An exception was thrown:"
     printfn "%A" e.InnerException

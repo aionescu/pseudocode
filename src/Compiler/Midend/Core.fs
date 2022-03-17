@@ -16,6 +16,9 @@ type Instr =
   | ClearVar of Idx * Type
   | Dup
 
+  | LoadArg of Idx
+  | SetArg of Idx
+
   | LoadIndex of Type
   | SetIndex of Type
   | Push of Type
@@ -42,6 +45,8 @@ type Instr =
 
   | Break
   | Continue
+  | Return
+  | Call of Id
 
-  | Nop
   | Seq of Instr * Instr
+  | Nop

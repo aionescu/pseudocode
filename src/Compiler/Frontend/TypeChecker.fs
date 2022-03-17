@@ -4,6 +4,15 @@ open Utils
 open Monad.TC
 open Compiler.Frontend.Syntax
 
+let panic () = failwith "Panic in TypeChecker"
+
+type Env =
+  { vars: Map<Id, Type>
+    fns: Map<Id, FnSig>
+    inLoop: bool
+    crrFn: FnSig
+  }
+
 let mustBeNumeric = function
   | Int | Float -> pure' ()
   | t -> err $"Expected numeric type, found {showType t}"
@@ -12,8 +21,9 @@ let mustNotBeList reason = function
   | List _ -> err $"Values of list types cannot be {reason}"
   | _ -> pure' ()
 
-let lookupVar i =
-  asks (Map.tryFind i) >>= (explain $"Undeclared variable \"{i}\"" >> lift)
+let lookupFn f =
+  asks (fun e -> Map.tryFind f e.fns)
+  >>= (explain $"Undeclared function \"{f}\"" >> lift)
 
 let mustBe expected actual =
   if actual = expected then
@@ -27,7 +37,31 @@ let rec mustBeLValue (U expr) =
   | Var _ -> pure' ()
   | _ -> err "Expected lvalue"
 
-let rec typeCheckExpr t (U expr) =
+let typeCheckVar v =
+  ask >>= fun { vars = vars; crrFn = { args = args } } ->
+  match Map.tryFind v vars with
+  | Some t -> pure' <| T (t, Var v)
+  | None ->
+      match lookup v args with
+      | Some t -> pure' <| T (t, Arg v)
+      | None -> err $"Undeclared variable \"{v}\""
+
+let rec typeCheckArgs { name = name; args = fArgs } args =
+  let types = List.map snd fArgs
+
+  match compare (List.length args) (List.length types) with
+  | -1 -> err $"Function \"{name}\" called with too few arguments"
+  | 1 -> err $"Function \"{name}\" called with too many arguments"
+  | 0 -> List.zip types args |> traverse (uncurry typeCheckExpr)
+  | _ -> panic ()
+
+and typeCheckFnCall f args =
+  ask >>= fun { vars = vars; fns = fns } ->
+  lookupFn f >>= fun f ->
+  typeCheckArgs f args <&> fun args ->
+  f.retType, args
+
+and typeCheckExpr t (U expr) =
   match expr with
   | BoolLit b -> mustBe t Bool &> T (Bool, BoolLit b)
   | IntLit i -> mustBe t Int &> T (Int, IntLit i)
@@ -44,7 +78,8 @@ let rec typeCheckExpr t (U expr) =
             err "Mismatched types in list literal"
       | _ -> err $"Expected type {showType t}, but found list literal"
 
-  | Var i -> lookupVar i >>= fun t' -> mustBe t t' &> T (t', Var i)
+  | Var i -> typeCheckVar i >>= fun (T (t', _) as v) -> mustBe t t' &> v
+  | Arg _ -> panic ()
 
   | Read e ->
       typeCheckExpr String e >>= fun e ->
@@ -104,6 +139,12 @@ let rec typeCheckExpr t (U expr) =
       typeCheckExpr Bool b <&> fun b ->
       T (Bool, Logic (op, a, b))
 
+  | FnCall (f, args) ->
+      typeCheckFnCall f args >>= fun (retType, args) ->
+      match retType with
+      | Some t' -> mustBe t t' &> T (t, FnCall (f, args))
+      | None -> err "Cannot use functions with no return type as expressions"
+
 and typeInferExpr (U expr) =
   match expr with
   | BoolLit b -> pure' <| T (Bool, BoolLit b)
@@ -118,7 +159,8 @@ and typeInferExpr (U expr) =
             pure' <| T (List t, ListLit es)
         | _ -> err "Mismatched types in list literal"
 
-  | Var i -> lookupVar i <&> fun t -> T (t, Var i)
+  | Var i -> typeCheckVar i
+  | Arg _ -> panic ()
 
   | Read _ -> err "Can't infer the type of read-expressions; Please add a type annotation"
 
@@ -175,91 +217,118 @@ and typeInferExpr (U expr) =
       typeCheckExpr Bool b <&> fun b ->
       T (Bool, Logic (op, a, b))
 
-let typeCheckExpr' t = local fst << typeCheckExpr t
-let typeInferExpr' = local fst << typeInferExpr
+  | FnCall (f, args) ->
+      typeCheckFnCall f args >>= fun (retType, args) ->
+      match retType with
+      | Some t -> pure' <| T (t, FnCall (f, args))
+      | None -> err "Cannot use functions with no return type as expressions"
 
 let mustBeUndeclared i =
-  asks (fst >> Map.containsKey i) >>= function
+  asks (fun e -> Map.containsKey i e.vars || lookup i e.crrFn.args <> None)
+  >>= function
     | true -> err $"Variable \"{i}\" already declared"
     | _ -> pure' ()
 
 let mustBeInLoop lbl =
-  asks snd >>= function
+  asks (fun e -> e.inLoop) >>= function
     | false -> err $"{lbl} can only be used inside a loop."
     | _ -> pure' ()
 
-let rec typeCheckStmt stmt =
+let rec typeCheckStmt stmt: TC<string, Env, _> =
   match stmt with
   | Let (i, t, e, s) ->
       mustBeUndeclared i *>
-      let tcExpr =
-        match t with
-        | Some t -> typeCheckExpr' t
-        | None -> typeInferExpr'
+      let tcExpr = option typeInferExpr typeCheckExpr t
 
       tcExpr e >>= fun e ->
       let t = ty e
 
-      local (first <| Map.add i t) (typeCheckStmt s) >>= fun s ->
+      local (fun e -> { e with vars = Map.add i t e.vars }) (typeCheckStmt s) >>= fun s ->
       pure' <| Let (i, Some t, e, s)
 
   | Assign (lhs, e) ->
       mustBeLValue lhs *>
-      typeInferExpr' lhs >>= fun lhs ->
+      typeInferExpr lhs >>= fun lhs ->
       let t = ty lhs
-      typeCheckExpr' t e <&> fun e ->
+      typeCheckExpr t e <&> fun e ->
       Assign (lhs, e)
 
   | Push (lhs, es) ->
       mustBeLValue lhs *>
-      typeInferExpr' lhs >>= fun lhs ->
+      typeInferExpr lhs >>= fun lhs ->
       match ty lhs with
       | List t ->
-          traverse (typeCheckExpr' t) es <&> fun es ->
+          traverse (typeCheckExpr t) es <&> fun es ->
           Push (lhs, es)
       | _ -> err "Can only push onto lists"
 
   | Pop e ->
-      typeInferExpr' e >>= fun e ->
+      typeInferExpr e >>= fun e ->
       match ty e with
       | List t -> pure' (Pop e)
       | _ -> err "Can only pop from lists"
 
   | Write es ->
-      traverse typeInferExpr' es >>= fun es ->
+      traverse typeInferExpr es >>= fun es ->
       traverse_ (fun (T (t, _)) -> mustNotBeList "written" t) es &>
       Write es
 
   | If (c, then', else') ->
-      typeCheckExpr' Bool c >>= fun c ->
+      typeCheckExpr Bool c >>= fun c ->
       typeCheckStmt then' >>= fun then' ->
       typeCheckStmt else' <&> fun else' ->
       If (c, then', else')
 
   | While (c, s) ->
-      typeCheckExpr' Bool c >>= fun c ->
-      local (second (const' true)) (typeCheckStmt s) <&> fun s ->
+      typeCheckExpr Bool c >>= fun c ->
+      local (fun e -> { e with inLoop = true }) (typeCheckStmt s) <&> fun s ->
       While (c, s)
 
   | DoWhile (s, c) ->
-      local (second (const' true)) (typeCheckStmt s) >>= fun s ->
-      typeCheckExpr' Bool c <&> fun c ->
+      local (fun e -> { e with inLoop = true }) (typeCheckStmt s) >>= fun s ->
+      typeCheckExpr Bool c <&> fun c ->
       DoWhile (s, c)
 
   | For (i, a, down, b, s) ->
       mustBeUndeclared i *>
-      typeCheckExpr' Int a >>= fun a ->
-      typeCheckExpr' Int b >>= fun b ->
-      local (fun (m, _) -> (Map.add i Int m, true)) (typeCheckStmt s) <&> fun s ->
-      For (i, a, down, b, s)
+      typeCheckExpr Int a >>= fun a ->
+      typeCheckExpr Int b >>= fun b ->
+      local
+        (fun e -> { e with vars = Map.add i Int e.vars; inLoop = true })
+        (typeCheckStmt s)
+      <&> fun s -> For (i, a, down, b, s)
 
   | Break -> mustBeInLoop "Break" &> Break
   | Continue -> mustBeInLoop "Continue" &> Continue
 
+  | Return e ->
+      asks (fun e -> e.crrFn.retType) >>= fun ret ->
+
+      match e, ret with
+      | Some e, Some t -> typeCheckExpr t e <&> (Some >> Return)
+      | None, None -> pure' <| Return None
+      | Some e, None -> err "Cannot return a value from a function with no return type"
+      | None, Some t -> err "Cannot use return with no value in a function with a return type"
+
+  | FnCallStmt (f, args) ->
+      typeCheckFnCall f args >>= fun (retType, args) ->
+      match retType with
+      | None -> pure' <| FnCallStmt (f, args)
+      | Some _ -> err "Cannot use functions with return type as statements"
+
   | Seq (a, b) -> curry Seq <!> typeCheckStmt a <*> typeCheckStmt b
   | Nop -> pure' Nop
 
-let typeCheck stmt =
-  typeCheckStmt stmt
-  |> runTC (Map.empty, false)
+let typeCheckFn fnSig body =
+  typeCheckStmt body
+  |> local (fun e -> { e with crrFn = fnSig })
+
+let typeCheck p =
+  traverseFns typeCheckFn p
+  |> runTC
+    { vars = Map.empty
+      fns = Map.map (const' fst) p.fns
+      inLoop = false
+      crrFn = fst <| Map.find "program" p.fns
+    }
   |> Result.mapError ((+) "Type error: ")

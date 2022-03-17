@@ -6,6 +6,7 @@ open System.IO
 open Utils
 open Compiler.Frontend.Parser
 open Compiler.Frontend.TypeChecker
+open Compiler.Frontend.FlowAnalysis
 open Compiler.Midend.Renamer
 open Compiler.Midend.Simplifier
 open Compiler.Midend.SanityCheck
@@ -20,14 +21,14 @@ let getInput = function
 
 let runCompiler args =
   getInput args
-  |> Result.bind parse
-  // |> Result.bind (parse >=> typeCheck)
-  // |> Result.map (rename >> simplify)
-  // |> Result.bind sanityCheck
-  // |> Result.map compileAndRun
+  |> Result.bind (parse >=> typeCheck >=> flowAnalysis)
+  |> Result.map (rename >> simplify)
+  |> Result.bind sanityCheck
+  |> Result.map (fun p -> printfn $"{p}"; p)
+  |> Result.map (compileProgram >> runCompiledProgram)
 
 [<EntryPoint>]
 let main argv =
   match runCompiler argv with
   | Error e -> printfn $"{e}"; 1
-  | Ok a -> printfn $"{a}"; 1
+  | Ok () -> 0

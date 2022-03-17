@@ -1,10 +1,13 @@
-program
-  let n: Int = read "Enter n: "
-  let f = 1
-
-  for i = 2 to n do
-    f = f * i
+function factorial(n: Int): Int
+  write "factorial of ", n
+  if n < 2 then
+    return n
+  else
+    return n * factorial(n - 1)
   end
+end
 
-  write f
+program
+  write "Running"
+  let x = factorial(5)
 end

@@ -28,10 +28,16 @@ let cons x xs = x :: xs
 
 let foldr f z xs = List.foldBack f xs z
 
+let lookup x = List.tryFind (fst >> (=) x) >> Option.map snd
+
+// Option
+
+let option z f = function
+  | None -> z
+  | Some a -> f a
+
 // Result
 
-let explain e = function
-  | None -> Error e
-  | Some a -> Ok a
+let explain e = option (Error e) Ok
 
 let (>=>) f g = f >> Result.bind g

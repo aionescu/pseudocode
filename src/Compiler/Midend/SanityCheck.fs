@@ -7,19 +7,35 @@ open Compiler.Frontend.TypeChecker
 open Compiler.Midend.Core
 
 type SanityCheckEnv =
-  { vars: Type list
+  { fns: Map<Id, FnSig>
+    vars: Type list
+    args: Type list
+    retType: Type option
     inLoop: bool
     stack: Type list
   }
 
 let lookupVar v =
-  asks (fun e -> e.vars) >>= fun vars ->
-  List.tryItem v vars
-  |> explain $"Variable \"{v}\" not allocated"
-  |> lift
+  asks (fun e -> List.tryItem v e.vars)
+  >>= (explain $"Variable \"{v}\" not allocated" >> lift)
+
+let lookupArg v =
+  asks (fun e -> List.tryItem v e.args)
+  >>= (explain $"Argument \"{v}\" does not exist" >> lift)
+
+let sanityCheckCall f stack =
+  asks (fun e -> Map.find f e.fns) >>= fun { args = args; retType = retType } ->
+  let argc = List.length args
+  let args = List.map snd args
+  let stackArgs = List.rev <| List.take argc stack
+
+  if stackArgs <> args then
+    err $"Invalid args in Call \"${f}\": Expected {args}, found {stackArgs}"
+  else
+    pure' <| Option.toList retType @ List.skip argc stack
 
 let rec sanityCheckInstr instr =
-  ask >>= fun { inLoop = inLoop; stack = stack } ->
+  ask >>= fun { retType = retType; inLoop = inLoop; stack = stack } ->
   match instr, stack with
   | PushBool _, _ -> pure' (Bool :: stack)
   | PushInt _, _ -> pure' (Int :: stack)
@@ -34,6 +50,12 @@ let rec sanityCheckInstr instr =
 
   | ClearVar (v, t), [] -> lookupVar v >>= fun v -> mustBe v t &> []
   | Dup, t :: stack -> pure' (t :: t :: stack)
+
+  | LoadArg v, _ -> lookupArg v <&> fun t -> t :: stack
+
+  | SetArg v, t :: stack ->
+      lookupArg v >>= fun v ->
+      mustBe v t &> stack
 
   | LoadIndex t, Int :: List t' :: stack when t = t' -> pure' (t :: stack)
   | SetIndex t, t' :: Int :: List t'' :: stack when t = t' && t = t'' -> pure' stack
@@ -85,11 +107,20 @@ let rec sanityCheckInstr instr =
         | _ -> err "Invalid For condition"
 
   | (Break | Continue), [] when inLoop -> pure' []
-  | Nop, _ -> pure' stack
+
+  | Return, _ ->
+      match stack, retType with
+      | [], None -> pure' []
+      | t' :: stack, Some t -> mustBe t t' &> stack
+      | _ -> err "Return type mismatch"
+
+  | Call f, _ -> sanityCheckCall f stack
 
   | Seq (t, s), _ ->
       sanityCheckInstr t >>= fun stack' ->
       local (fun e -> { e with stack = stack' }) <| sanityCheckInstr s
+
+  | Nop, _ -> pure' stack
 
   | _ -> err $"Invalid Core instruction:\n{instr}\n{stack}"
 
@@ -102,8 +133,19 @@ and ensureEmptyStack inLoop label instr =
     | [] -> pure' ()
     | _ -> err $"{label} resulted in non-empty stack"
 
-let sanityCheck (vars, instr) =
-  ensureEmptyStack false "Program" instr
+let sanityCheckFn { name = name; args = args; retType = retType } (vars, instr) =
+  ensureEmptyStack false name instr
+  |> local (fun e -> { e with vars = vars; args = List.map snd args; retType = retType })
   &> (vars, instr)
-  |> runTC { vars = vars; inLoop = false; stack = [] }
+
+let sanityCheck p =
+  traverseFns sanityCheckFn p
+  |> runTC
+    { fns = Map.map (const' fst) p.fns
+      vars = []
+      args = []
+      retType = None
+      inLoop = false
+      stack = []
+    }
   |> Result.mapError ((+) "Core sanityCheck error: ")
