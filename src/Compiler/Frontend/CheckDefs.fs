@@ -26,9 +26,17 @@ let checkDuplicateArgs fnSig body =
   | [] -> pure' body
   | arg :: _ -> err $"Duplicate definition for argument \"{arg}\" in function \"{fnSig.name}\""
 
+let checkArgsShadowing fns { name = name; args = args } body =
+  List.map fst args
+  |> List.filter (fun name -> Map.containsKey name fns)
+  |> function
+    | [] -> pure' body
+    | arg :: _ -> err $"Argument \"{arg}\" in function \"{name}\" shadows a function with the same name"
+
 let checkDefs fns =
   checkDuplicateFns fns
   >>= checkProgramSig
   >>= traverseFns checkDuplicateArgs
+  >>= fun p -> traverseFns (checkArgsShadowing p.fns) p
   |> runTC ()
   |> Result.mapError ((+) "Definition error: ")
