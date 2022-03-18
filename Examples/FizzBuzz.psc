@@ -11,7 +11,7 @@ function fizzBuzz(n: Int)
 end
 
 program
-  for i = 1 to 100 do
+  for i = 1 to read "n: " do
     fizzBuzz(i)
   end
 end

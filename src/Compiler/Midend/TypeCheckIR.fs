@@ -85,23 +85,25 @@ let rec typeCheckInstr instr =
       ensureEmptyStack inLoop "False branch" f &>
       stack
 
-  | While (c, s), _ ->
-      withEmptyStack c >>= function
+  | While (c, s), [] ->
+      typeCheckInstr c >>= function
         | [Bool] -> ensureEmptyStack true "While body" s &> stack
         | _ -> err "Invalid While condition"
 
-  | DoWhile (s, c), _ ->
-      withEmptyStack c >>= function
+  | DoWhile (s, c), [] ->
+      typeCheckInstr c >>= function
         | [Bool] -> ensureEmptyStack true "While body" s &> stack
         | _ -> err "Invalid DoWhile condition"
 
-  | For (c, s, u), _ ->
-      withEmptyStack c >>= function
-        | [Bool] ->
-            ensureEmptyStack true "For body" s *>
-            ensureEmptyStack true "For update block" u
+  | For (i, a, _, b, s), [] ->
+      pair <!> typeCheckInstr a <*> typeCheckInstr b >>= function
+        | [Int], [Int] ->
+            local
+              (fun e -> { e with vars = Map.add i Int e.vars })
+              (ensureEmptyStack true "For body" s)
             &> stack
-        | _ -> err "Invalid For condition"
+        | [Int], b -> err $"Invalid For bound: Expected [Int], found {b}"
+        | a, _ -> err $"Invalid For initializer: Expected [Int], found {a}"
 
   | (Break | Continue), [] when inLoop -> pure' []
 
@@ -121,11 +123,9 @@ let rec typeCheckInstr instr =
 
   | _ -> err $"Invalid IR instruction:\n{instr}\n{stack}"
 
-and withEmptyStack = local (fun e -> { e with stack = [] }) << typeCheckInstr
-
 and ensureEmptyStack inLoop label instr =
-  withEmptyStack instr
-  |> local (fun e -> { e with inLoop = inLoop })
+  typeCheckInstr instr
+  |> local (fun e -> { e with inLoop = inLoop; stack = [] })
   >>= function
     | [] -> pure' ()
     | _ -> err $"{label} resulted in non-empty stack"

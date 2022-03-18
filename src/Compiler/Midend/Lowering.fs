@@ -77,18 +77,7 @@ let rec lowerStmt stmt =
   | Stmt.If (c, t, e) -> seq' [lowerExpr c; If (lowerStmt t, lowerStmt e)]
   | Stmt.While (c, s) -> While (lowerExpr c, lowerStmt s)
   | Stmt.DoWhile (s, c) -> DoWhile (lowerStmt s, lowerExpr c)
-
-  | Stmt.For (i, a, down, b, s) ->
-      let comp, arith =
-        if down then
-          Gte, Sub
-        else
-          Lte, Add
-
-      let cond = seq' [LoadVar i; lowerExpr b; Comp (comp, false)]
-      let update = seq' [LoadVar i; PushInt 1; Arith arith; SetVar i]
-
-      Let (i, Int, lowerExpr a, For (cond, lowerStmt s, update))
+  | Stmt.For (i, a, down, b, s) -> For (i, lowerExpr a, down, lowerExpr b, lowerStmt s)
 
   | Stmt.Break -> Break
   | Stmt.Continue -> Continue

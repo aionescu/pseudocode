@@ -36,7 +36,7 @@ type Instr =
   | If of Instr * Instr
   | While of Instr * Instr
   | DoWhile of Instr * Instr
-  | For of Instr * Instr * Instr
+  | For of Id * Instr * bool * Instr * Instr
 
   | Break
   | Continue

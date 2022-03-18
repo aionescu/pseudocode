@@ -221,22 +221,40 @@ let rec emitInstr env instr =
       il.Emit(OpCodes.Brtrue, loopLbl)
       il.MarkLabel(doneLbl)
 
-  | For (c, s, u) ->
+  | For (i, init, down, bound, s) ->
+      il.BeginScope()
+
       let loopLbl = il.DefineLabel()
       let updateLbl = il.DefineLabel()
       let doneLbl = il.DefineLabel()
 
-      il.MarkLabel(loopLbl)
-      emitInstr env c
+      let l = il.DeclareLocal(typeof<int>)
+      let b = il.DeclareLocal(typeof<int>)
 
-      il.Emit(OpCodes.Brfalse, doneLbl)
-      emitInstr { env with breakLbl = doneLbl; contLbl = updateLbl } s
+      emitInstr env init
+      il.Emit(OpCodes.Stloc, l)
+
+      emitInstr env bound
+      il.Emit(OpCodes.Stloc, b)
+
+      il.MarkLabel(loopLbl)
+      il.Emit(OpCodes.Ldloc, l)
+      il.Emit(OpCodes.Ldloc, b)
+      il.Emit(if down then OpCodes.Clt else OpCodes.Cgt)
+
+      il.Emit(OpCodes.Brtrue, doneLbl)
+      emitInstr { env with vars = Map.add i l vars; breakLbl = doneLbl; contLbl = updateLbl } s
 
       il.MarkLabel(updateLbl)
-      emitInstr env u
+      il.Emit(OpCodes.Ldloc, l)
+      il.Emit(OpCodes.Ldc_I4_1)
+      il.Emit(if down then OpCodes.Sub else OpCodes.Add)
+      il.Emit(OpCodes.Stloc, l)
 
       il.Emit(OpCodes.Br, loopLbl)
       il.MarkLabel(doneLbl)
+
+      il.EndScope()
 
   | Break -> il.Emit(OpCodes.Br, breakLbl)
   | Continue -> il.Emit(OpCodes.Br, contLbl)
