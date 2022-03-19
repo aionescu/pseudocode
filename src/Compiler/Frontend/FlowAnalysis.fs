@@ -18,9 +18,8 @@ let flowAnalysisFn fnSig body =
   if alwaysReturns body || fnSig.retType = None then
     pure' body
   else
-    err $"Not all code paths return a value in function \"{fnSig.name}\""
+    err $"Error: Not all code paths return a value in function \"{fnSig.name}\""
 
 let flowAnalysis p =
   traverseFns flowAnalysisFn p
   |> runTC ()
-  |> Result.mapError ((+) "Control flow error: ")

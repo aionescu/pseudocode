@@ -314,16 +314,17 @@ let rec typeCheckStmt stmt: TC<string, Env, _> =
   | Seq (a, b) -> curry Seq <!> typeCheckStmt a <*> typeCheckStmt b
   | Nop -> pure' Nop
 
-let typeCheckFn { args = args; retType = retType } body =
+let typeCheckFn { name = name; args = args; retType = retType } body =
   typeCheckStmt body
   |> local (fun e -> { e with vars = Map.ofList args; retType = retType })
+  |> mapErr ((+) $"In function \"{name}\": ")
 
 let typeCheck p =
   traverseFns typeCheckFn p
+  |> mapErr ((+) "Type error: ")
   |> runTC
     { fns = mapVals fst p.fns
       vars = Map.empty
       inLoop = false
       retType = None
     }
-  |> Result.mapError ((+) "Type error: ")

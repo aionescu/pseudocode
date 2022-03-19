@@ -133,10 +133,12 @@ and ensureEmptyStack inLoop label instr =
 let typeCheckFn { name = name; args = args; retType = retType } instr =
   ensureEmptyStack false name instr
   |> local (fun e -> { e with vars = Map.ofList args; retType = retType })
+  |> mapErr ((+) $"In function \"{name}\": ")
   &> instr
 
 let typeCheckIR p =
   traverseFns typeCheckFn p
+  |> mapErr ((+) "IR type error: ")
   |> runTC
     { fns = mapVals fst p.fns
       vars = Map.empty
@@ -144,4 +146,3 @@ let typeCheckIR p =
       inLoop = false
       stack = []
     }
-  |> Result.mapError ((+) "IR type error: ")

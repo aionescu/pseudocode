@@ -38,5 +38,5 @@ let checkDefs fns =
   >>= checkProgramSig
   >>= traverseFns checkDuplicateArgs
   >>= fun p -> traverseFns (checkArgsShadowing p.fns) p
+  |> mapErr ((+) "Error: ")
   |> runTC ()
-  |> Result.mapError ((+) "Definition error: ")

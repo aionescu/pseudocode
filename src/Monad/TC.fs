@@ -62,3 +62,5 @@ let rec traverse_ f xs =
   | x :: xs -> f x *> traverse_ f xs
 
 let sequence xs = traverse id xs
+
+let mapErr f (TC tc) = TC (Result.mapError f << tc)
