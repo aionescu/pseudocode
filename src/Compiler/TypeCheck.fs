@@ -216,13 +216,13 @@ and typeInferExpr (U expr) =
 
 let mustBeUndeclared i =
   asks (fun e -> e.vars) >>= fun vars ->
-  unless (Map.containsKey i vars) <|
+  when' (Map.containsKey i vars) <|
     err $"Variable \"{i}\" is already declared"
 
 let mustBeInLoop lbl =
   asks (fun e -> e.inLoop) >>= flip unless (err $"\"{lbl}\" can only be used inside a loop.")
 
-let rec typeCheckStmt stmt: TC<string, Env, _> =
+let rec typeCheckStmt stmt =
   match stmt with
   | Let (i, t, e, s) ->
       mustBeUndeclared i *>
@@ -324,13 +324,17 @@ let flowAnalysis retTy body =
   unless (alwaysReturns body || retTy = None) <|
     err $"Not all code paths return a value"
 
+let fnName = function
+  | "program" -> "program"
+  | name -> $"function \"name\""
+
 let typeCheckFn { name = name; args = args; retTy = retTy } body =
   checkDuplicateArgs args
   *> local
     (fun e -> { e with vars = Map.ofList args; retTy = retTy })
     (typeCheckStmt body)
   <* flowAnalysis retTy body
-  |> mapErr ((+) $"In function \"{name}\": ")
+  |> mapErr ((+) $"In {fnName name}: ")
 
 let typeCheck p =
   traverseFns typeCheckFn p

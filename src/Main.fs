@@ -7,7 +7,6 @@ open Utils.Misc
 open Compiler.Parser
 open Compiler.TypeCheck
 open Compiler.Lowering
-open Compiler.TypeCheckIR
 open Compiler.Codegen
 
 let getInput = function
@@ -20,8 +19,7 @@ let getInput = function
 let runCompiler args =
   getInput args
   |> Result.bind (parse >=> typeCheck)
-  |> Result.bind (lower >> typeCheckIR)
-  |> Result.map (compileProgram >> runCompiledProgram)
+  |> Result.map (lower >> compile >> runProgram)
 
 [<EntryPoint>]
 let main argv =

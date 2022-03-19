@@ -9,21 +9,24 @@ type Instr =
   | PushString of string
   | NewList of Ty
 
-  | Let of Id * Ty * Instr * Instr
+  | Let of Id * Ty * Instr list * Instr list
   | LoadVar of Id
   | SetVar of Id
+  | LoadArg of int
+  | SetArg of int
   | Dup
 
   | LoadIndex of Ty
   | SetIndex of Ty
-  | Push of Ty
-  | Pop of Ty
+  | ListPush of Ty
+  | ListPop of Ty
 
   | Read of Ty
   | Write of Ty
   | WriteLine
 
-  | Length of Ty option
+  | StrLength
+  | ListLength of Ty
 
   | Not
   | Negate
@@ -31,17 +34,15 @@ type Instr =
   | Append
   | Pow
   | Arith of ArithOp
-  | Comp of CompOp * isString: bool
+  | Comp of CompOp
+  | StrComp of CompOp
 
-  | If of Instr * Instr
-  | While of Instr * Instr
-  | DoWhile of Instr * Instr
-  | For of Id * Instr * bool * Instr * Instr
+  | If of Instr list * Instr list
+  | While of Instr list * Instr list
+  | DoWhile of Instr list * Instr list
+  | For of Id * Instr list * bool * Instr list * Instr list
 
   | Break
   | Continue
   | Return
   | Call of Id
-
-  | Seq of Instr * Instr
-  | Nop

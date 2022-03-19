@@ -16,7 +16,6 @@
     <Compile Include="src/Compiler/TypeCheck.fs"/>
     <Compile Include="src/Compiler/IR.fs"/>
     <Compile Include="src/Compiler/Lowering.fs"/>
-    <Compile Include="src/Compiler/TypeCheckIR.fs"/>
     <Compile Include="src/Compiler/Codegen.fs"/>
 
     <Compile Include="src/Main.fs"/>

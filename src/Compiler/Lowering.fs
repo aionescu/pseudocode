@@ -6,14 +6,12 @@ open Compiler.IR
 
 let panic () = failwith "Panic in Lowering"
 
-let seq' = foldr (curry Seq) Nop
-
-let rec lowerExpr (T (t, e)) =
+let rec lowerExpr args (T (t, e)) =
   match e with
-  | BoolLit b -> PushBool b
-  | IntLit i -> PushInt i
-  | FloatLit f  -> PushFloat f
-  | StringLit s -> PushString s
+  | BoolLit b -> [PushBool b]
+  | IntLit i -> [PushInt i]
+  | FloatLit f  -> [PushFloat f]
+  | StringLit s -> [PushString s]
 
   | ListLit es ->
       let t =
@@ -21,73 +19,81 @@ let rec lowerExpr (T (t, e)) =
         | List t -> t
         | _ -> panic ()
 
-      let setElem e = [Dup; lowerExpr e; Push <| ty e]
-      seq' (NewList t :: List.collect setElem es)
+      let setElem e = Dup :: (lowerExpr args e @ [ListPush <| ty e])
+      NewList t :: List.collect setElem es
 
-  | Var i -> LoadVar i
+  | Var i ->
+      match List.tryFindIndex ((=) i) args with
+      | None -> [LoadVar i]
+      | Some idx -> [LoadArg idx]
 
-  | Expr.Read e -> seq' [lowerExpr e; Write String; Read t]
-  | Expr.Length e ->
-      let t =
+  | Expr.Read e -> lowerExpr args e @ [Write String; Read t]
+  | Length e ->
+      lowerExpr args e @
         match ty e with
-        | List t -> Some t
-        | _ -> None
+        | List t -> [ListLength t]
+        | _ -> [StrLength]
 
-      seq' [lowerExpr e; Length t]
+  | Subscript (a, i) -> lowerExpr args a @ lowerExpr args i @ [LoadIndex t]
+  | Expr.Not e -> lowerExpr args e @ [Not]
+  | Expr.Negate e -> lowerExpr args e @ [Negate]
 
-  | Subscript (a, i) -> seq' [lowerExpr a; lowerExpr i; LoadIndex t]
-  | Expr.Not e -> seq' [lowerExpr e; Not]
-  | Expr.Negate e -> seq' [lowerExpr e; Negate]
+  | Expr.Append (a, b) -> lowerExpr args a @ lowerExpr args b @ [Append]
+  | Expr.Pow (a, b) -> lowerExpr args a @ lowerExpr args b @ [Pow]
+  | Expr.Arith (op, a, b) -> lowerExpr args a @ lowerExpr args b @ [Arith op]
+  | Expr.Comp (op, a, b) -> lowerExpr args a @ lowerExpr args b @ [if t = String then StrComp op else Comp op]
 
-  | Expr.Append (a, b) -> seq' [lowerExpr a; lowerExpr b; Append]
-  | Expr.Pow (a, b) -> seq' [lowerExpr a; lowerExpr b; Pow]
-  | Expr.Arith (op, a, b) -> seq' [lowerExpr a; lowerExpr b; Arith op]
-  | Expr.Comp (op, a, b) -> seq' [lowerExpr a; lowerExpr b; Comp (op, t = String)]
+  | Logic (And, a, b) -> lowerExpr args a @ [If (lowerExpr args b, [PushBool false])]
+  | Logic (Or, a, b) -> lowerExpr args a @ [If ([PushBool true], lowerExpr args b)]
 
-  | Logic (And, a, b) -> seq' [lowerExpr a; If (lowerExpr b, PushBool false)]
-  | Logic (Or, a, b) -> seq' [lowerExpr a; If (PushBool true, lowerExpr b)]
+  | FnCall (f, a) -> List.collect (lowerExpr args) a @ [Call f]
 
-  | FnCall (f, args) -> seq' [seq' <| List.map lowerExpr args; Call f]
-
-let rec lowerStmt stmt =
+let rec lowerStmt args stmt =
   match stmt with
   | Stmt.Let (_, None, _, _) -> panic ()
-  | Stmt.Let (i, Some t, e, s) -> Let (i, t, lowerExpr e, lowerStmt s)
+  | Stmt.Let (i, Some t, e, s) -> [Let (i, t, lowerExpr args e, lowerStmt args s)]
 
-  | Assign (T (_, Var i), e) -> seq' [lowerExpr e; SetVar i]
-  | Assign (T (t, Subscript (a, i)), e) -> seq' [lowerExpr a; lowerExpr i; lowerExpr e; SetIndex t]
+  | Assign (T (_, Var i), e) ->
+      lowerExpr args e @
+        match List.tryFindIndex ((=) i) args with
+        | None -> [SetVar i]
+        | Some idx -> [SetArg idx]
+
+  | Assign (T (t, Subscript (a, i)), e) -> lowerExpr args a @ lowerExpr args i @ lowerExpr args e @ [SetIndex t]
   | Assign _ -> panic ()
 
-  | Stmt.Push (i, es) ->
-      let setElem e = [Dup; lowerExpr e; Push <| ty e]
+  | Push (i, es) ->
+      let setElem e = Dup :: lowerExpr args e @ [ListPush <| ty e]
 
       match List.splitAt (List.length es - 1) es with
-      | es, [e] -> seq' <| lowerExpr i :: (List.collect setElem es @ [lowerExpr e; Push <| ty e])
+      | es, [e] -> lowerExpr args i @ List.collect setElem es @ lowerExpr args e @ [ListPush <| ty e]
       | _ -> panic ()
 
-  | Stmt.Pop i ->
+  | Pop i ->
       match ty i with
-      | List t -> seq' [lowerExpr i; Pop t]
+      | List t -> lowerExpr args i @ [ListPop t]
       | _ -> panic ()
 
   | Stmt.Write es ->
-      let writeSingle e = [lowerExpr e; Write <| ty e]
-      seq' <| List.collect writeSingle es @ [WriteLine]
+      let writeSingle e = lowerExpr args e @ [Write <| ty e]
+      List.collect writeSingle es @ [WriteLine]
 
-  | Stmt.If (c, t, e) -> seq' [lowerExpr c; If (lowerStmt t, lowerStmt e)]
-  | Stmt.While (c, s) -> While (lowerExpr c, lowerStmt s)
-  | Stmt.DoWhile (s, c) -> DoWhile (lowerStmt s, lowerExpr c)
-  | Stmt.For (i, a, down, b, s) -> For (i, lowerExpr a, down, lowerExpr b, lowerStmt s)
+  | Stmt.If (c, t, e) -> lowerExpr args c @ [If (lowerStmt args t, lowerStmt args e)]
+  | Stmt.While (c, s) -> [While (lowerExpr args c, lowerStmt args s)]
+  | Stmt.DoWhile (s, c) -> [DoWhile (lowerStmt args s, lowerExpr args c)]
+  | Stmt.For (i, a, down, b, s) -> [For (i, lowerExpr args a, down, lowerExpr args b, lowerStmt args s)]
 
-  | Stmt.Break -> Break
-  | Stmt.Continue -> Continue
+  | Stmt.Break -> [Break]
+  | Stmt.Continue -> [Continue]
 
-  | Stmt.Return None -> Return
-  | Stmt.Return (Some e) -> seq' [lowerExpr e; Return]
+  | Stmt.Return None -> [Return]
+  | Stmt.Return (Some e) -> lowerExpr args e @ [Return]
 
-  | FnCallStmt (f, args) -> seq' [seq' <| List.map lowerExpr args; Call f]
+  | FnCallStmt (f, a) -> List.collect (lowerExpr args) a @ [Call f]
 
-  | Stmt.Seq (a, b) -> seq' [lowerStmt a; lowerStmt b]
-  | Stmt.Nop -> Nop
+  | Seq (a, b) -> lowerStmt args a @ lowerStmt args b
+  | Nop -> []
 
-let lower p = mapFns (const' lowerStmt) p
+let lowerFn fnSig = lowerStmt <| List.map fst fnSig.args
+
+let lower p = mapFns lowerFn p
