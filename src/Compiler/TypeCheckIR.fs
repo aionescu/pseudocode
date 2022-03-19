@@ -1,10 +1,10 @@
-module Compiler.Midend.TypeCheckIR
+module Compiler.TypeCheckIR
 
-open Utils
-open Monad.TC
-open Compiler.Frontend.AST
-open Compiler.Frontend.TypeCheck
-open Compiler.Midend.IR
+open Utils.Misc
+open Utils.TC
+open Compiler.AST
+open Compiler.TypeCheck
+open Compiler.IR
 
 type TypeCheckIREnv =
   { fns: Map<Id, FnSig>

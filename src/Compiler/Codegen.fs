@@ -1,12 +1,12 @@
-module Compiler.Backend.Codegen
+module Compiler.Codegen
 
 open System
 open System.Reflection
 open System.Reflection.Emit
 
-open Utils
-open Compiler.Frontend.AST
-open Compiler.Midend.IR
+open Utils.Misc
+open Compiler.AST
+open Compiler.IR
 
 let panic () = failwith "Panic in Codegen"
 let unsupported () = failwith "Instruction is not yet supported"

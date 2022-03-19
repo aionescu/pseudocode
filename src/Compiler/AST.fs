@@ -1,7 +1,7 @@
-module Compiler.Frontend.AST
+module Compiler.AST
 
-open Utils
-open Monad.TC
+open Utils.Misc
+open Utils.TC
 
 type Id = string
 

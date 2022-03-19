@@ -3,14 +3,14 @@
 open System
 open System.IO
 
-open Utils
-open Compiler.Frontend.Parser
-open Compiler.Frontend.CheckDefs
-open Compiler.Frontend.TypeCheck
-open Compiler.Frontend.FlowAnalysis
-open Compiler.Midend.Lowering
-open Compiler.Midend.TypeCheckIR
-open Compiler.Backend.Codegen
+open Utils.Misc
+open Compiler.Parser
+open Compiler.CheckDefs
+open Compiler.TypeCheck
+open Compiler.FlowAnalysis
+open Compiler.Lowering
+open Compiler.TypeCheckIR
+open Compiler.Codegen
 
 let getInput = function
   | [|"-"|] -> Ok ("<stdin>", Console.In.ReadToEnd())

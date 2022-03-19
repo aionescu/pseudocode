@@ -1,8 +1,8 @@
-module Compiler.Midend.Lowering
+module Compiler.Lowering
 
-open Utils
-open Compiler.Frontend.AST
-open Compiler.Midend.IR
+open Utils.Misc
+open Compiler.AST
+open Compiler.IR
 
 let panic () = failwith "Panic in Lowering"
 

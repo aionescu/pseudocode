@@ -1,6 +1,6 @@
-module Compiler.Midend.IR
+module Compiler.IR
 
-open Compiler.Frontend.AST
+open Compiler.AST
 
 type Instr =
   | PushBool of bool

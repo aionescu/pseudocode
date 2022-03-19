@@ -1,7 +1,9 @@
-module Monad.TC
+module Utils.TC
 
-open Utils
+open Utils.Misc
 
+// The "Type Checking" monad
+// =~ ReaderT r (Either e) a
 type TC<'e, 'r, 'a> = TC of ('r -> Result<'a, 'e>)
 
 let runTC r (TC tc) = tc r

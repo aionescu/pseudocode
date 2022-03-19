@@ -8,21 +8,18 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="src/Utils.fs"/>
+    <Compile Include="src/Utils/Misc.fs"/>
+    <Compile Include="src/Utils/TC.fs"/>
 
-    <Compile Include="src/Monad/TC.fs"/>
-
-    <Compile Include="src/Compiler/Frontend/AST.fs"/>
-    <Compile Include="src/Compiler/Frontend/Parser.fs"/>
-    <Compile Include="src/Compiler/Frontend/CheckDefs.fs"/>
-    <Compile Include="src/Compiler/Frontend/TypeCheck.fs"/>
-    <Compile Include="src/Compiler/Frontend/FlowAnalysis.fs"/>
-
-    <Compile Include="src/Compiler/Midend/IR.fs"/>
-    <Compile Include="src/Compiler/Midend/Lowering.fs"/>
-    <Compile Include="src/Compiler/Midend/TypeCheckIR.fs"/>
-
-    <Compile Include="src/Compiler/Backend/Codegen.fs"/>
+    <Compile Include="src/Compiler/AST.fs"/>
+    <Compile Include="src/Compiler/Parser.fs"/>
+    <Compile Include="src/Compiler/CheckDefs.fs"/>
+    <Compile Include="src/Compiler/TypeCheck.fs"/>
+    <Compile Include="src/Compiler/FlowAnalysis.fs"/>
+    <Compile Include="src/Compiler/IR.fs"/>
+    <Compile Include="src/Compiler/Lowering.fs"/>
+    <Compile Include="src/Compiler/TypeCheckIR.fs"/>
+    <Compile Include="src/Compiler/Codegen.fs"/>
 
     <Compile Include="src/Main.fs"/>
   </ItemGroup>

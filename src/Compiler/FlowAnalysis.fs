@@ -1,8 +1,8 @@
-module Compiler.Frontend.FlowAnalysis
+module Compiler.FlowAnalysis
 
-open Utils
-open Monad.TC
-open Compiler.Frontend.AST
+open Utils.Misc
+open Utils.TC
+open Compiler.AST
 
 let panic () = failwith "Panic in FlowAnalysis"
 

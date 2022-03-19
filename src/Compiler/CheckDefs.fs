@@ -1,7 +1,7 @@
-module Compiler.Frontend.CheckDefs
+module Compiler.CheckDefs
 
-open Monad.TC
-open Compiler.Frontend.AST
+open Utils.TC
+open Compiler.AST
 
 let duplicatesBy f l =
   List.groupBy f l
