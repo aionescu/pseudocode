@@ -5,9 +5,7 @@ open System.IO
 
 open Utils.Misc
 open Compiler.Parser
-open Compiler.CheckDefs
 open Compiler.TypeCheck
-open Compiler.FlowAnalysis
 open Compiler.Lowering
 open Compiler.TypeCheckIR
 open Compiler.Codegen
@@ -21,7 +19,7 @@ let getInput = function
 
 let runCompiler args =
   getInput args
-  |> Result.bind (parse >=> checkDefs >=> typeCheck >=> flowAnalysis)
+  |> Result.bind (parse >=> typeCheck)
   |> Result.bind (lower >> typeCheckIR)
   |> Result.map (compileProgram >> runCompiledProgram)
 

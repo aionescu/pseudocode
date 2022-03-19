@@ -235,7 +235,14 @@ let function' = fnSig .>> stmtSep .>>. stmt .>> end'
 
 let program = wsMulti >>. many function' .>> eof
 
+let mkProgram fns =
+  let duplicates = duplicatesBy (fun ({ name = n }, _) -> n) fns
+
+  match duplicates with
+  | name :: _ -> Result.Error $"Duplicate definition for function \"{name}\""
+  | [] -> Result.Ok { fns = Map.ofList <| List.map (fun ({ name = name }, _ as fn) -> name, fn) fns }
+
 let parse (name, code) =
   match runParserOnString program () name code with
   | Failure (e, _, _) -> Result.Error ("Parser error:\n" + e)
-  | Success (a, _, _) -> Result.Ok a
+  | Success (fns, _, _) -> mkProgram fns

@@ -30,9 +30,7 @@ let lookupFn f =
   >>= (explain $"Undeclared function \"{f}\"" >> lift)
 
 let mustBe expected actual =
-  if actual = expected then
-    pure' ()
-  else
+  unless (actual = expected) <|
     err $"Expected type {showTy expected}, but found {showTy actual}"
 
 let rec mustBeLValue (U expr) =
@@ -217,17 +215,12 @@ and typeInferExpr (U expr) =
       | None -> err "Cannot use functions with no return type as expressions"
 
 let mustBeUndeclared i =
-  ask >>= fun { vars = vars; fns = fns } ->
-
-  if Map.containsKey i vars || Map.containsKey i fns then
-    err $"Identifer \"{i}\" is already declared"
-  else
-    pure' ()
+  asks (fun e -> e.vars) >>= fun vars ->
+  unless (Map.containsKey i vars) <|
+    err $"Variable \"{i}\" is already declared"
 
 let mustBeInLoop lbl =
-  asks (fun e -> e.inLoop) >>= function
-    | false -> err $"{lbl} can only be used inside a loop."
-    | _ -> pure' ()
+  asks (fun e -> e.inLoop) >>= flip unless (err $"\"{lbl}\" can only be used inside a loop.")
 
 let rec typeCheckStmt stmt: TC<string, Env, _> =
   match stmt with
@@ -293,8 +286,8 @@ let rec typeCheckStmt stmt: TC<string, Env, _> =
         (typeCheckStmt s)
       <&> fun s -> For (i, a, down, b, s)
 
-  | Break -> mustBeInLoop "Break" &> Break
-  | Continue -> mustBeInLoop "Continue" &> Continue
+  | Break -> mustBeInLoop "break" &> Break
+  | Continue -> mustBeInLoop "continue" &> Continue
 
   | Return e ->
       asks (fun e -> e.retTy) >>= fun ret ->
@@ -314,14 +307,34 @@ let rec typeCheckStmt stmt: TC<string, Env, _> =
   | Seq (a, b) -> curry Seq <!> typeCheckStmt a <*> typeCheckStmt b
   | Nop -> pure' Nop
 
+let checkDuplicateArgs args =
+  match duplicatesBy fst args with
+  | [] -> pure' ()
+  | arg :: _ -> err $"Duplicate definition for argument \"{arg}\""
+
+let rec alwaysReturns = function
+  | Return _ -> true
+  | Let (_, _, _, s) -> alwaysReturns s
+  | Seq (a, b) -> alwaysReturns a || alwaysReturns b
+  | If (_, t, f) -> alwaysReturns t && alwaysReturns f
+  | DoWhile (s, _) -> alwaysReturns s
+  | _ -> false
+
+let flowAnalysis retTy body =
+  unless (alwaysReturns body || retTy = None) <|
+    err $"Not all code paths return a value"
+
 let typeCheckFn { name = name; args = args; retTy = retTy } body =
-  typeCheckStmt body
-  |> local (fun e -> { e with vars = Map.ofList args; retTy = retTy })
+  checkDuplicateArgs args
+  *> local
+    (fun e -> { e with vars = Map.ofList args; retTy = retTy })
+    (typeCheckStmt body)
+  <* flowAnalysis retTy body
   |> mapErr ((+) $"In function \"{name}\": ")
 
 let typeCheck p =
   traverseFns typeCheckFn p
-  |> mapErr ((+) "Ty error: ")
+  |> mapErr ((+) "Type error: ")
   |> runTC
     { fns = mapVals fst p.fns
       vars = Map.empty

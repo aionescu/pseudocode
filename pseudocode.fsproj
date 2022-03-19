@@ -13,9 +13,7 @@
 
     <Compile Include="src/Compiler/AST.fs"/>
     <Compile Include="src/Compiler/Parser.fs"/>
-    <Compile Include="src/Compiler/CheckDefs.fs"/>
     <Compile Include="src/Compiler/TypeCheck.fs"/>
-    <Compile Include="src/Compiler/FlowAnalysis.fs"/>
     <Compile Include="src/Compiler/IR.fs"/>
     <Compile Include="src/Compiler/Lowering.fs"/>
     <Compile Include="src/Compiler/TypeCheckIR.fs"/>

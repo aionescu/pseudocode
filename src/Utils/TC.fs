@@ -46,6 +46,9 @@ let (<|>) (TC a) (TC b) = TC <| fun r ->
   | Ok _ as a -> a
   | _ -> b r
 
+let when' b m = if b then m else pure' ()
+let unless b m = if b then pure' () else m
+
 let rec traverse f xs =
   match xs with
   | [] -> pure' []

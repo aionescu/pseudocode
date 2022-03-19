@@ -3,6 +3,7 @@ module Utils.Misc
 // Function
 
 let const' a _ = a
+let flip f a b = f b a
 
 let curry f a b = f (a, b)
 let uncurry f (a, b) = f a b
@@ -24,6 +25,11 @@ let swap (a, b) = (b, a)
 let cons x xs = x :: xs
 
 let foldr f z xs = List.foldBack f xs z
+
+let duplicatesBy f l =
+  List.groupBy f l
+  |> List.filter (fun (_, l) -> List.length l > 1)
+  |> List.map (fun (name, _) -> name)
 
 // Map
 
