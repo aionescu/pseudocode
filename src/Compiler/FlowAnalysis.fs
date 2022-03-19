@@ -15,7 +15,7 @@ let rec alwaysReturns = function
   | _ -> false
 
 let flowAnalysisFn fnSig body =
-  if alwaysReturns body || fnSig.retType = None then
+  if alwaysReturns body || fnSig.retTy = None then
     pure' body
   else
     err $"Error: Not all code paths return a value in function \"{fnSig.name}\""

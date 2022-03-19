@@ -34,21 +34,21 @@ let stringLength = typeof<string>.GetMethod("get_Length", [||])
 
 let ilList = typedefof<Collections.Generic.List<_>>
 
-let rec ilType = function
+let rec ilTy = function
   | Bool -> typeof<bool>
   | Int -> typeof<int>
   | Float -> typeof<float>
   | String -> typeof<string>
-  | List t -> ilList.MakeGenericType([|ilType t|])
+  | List t -> ilList.MakeGenericType([|ilTy t|])
 
-let listType = List >> ilType
+let listTy = List >> ilTy
 
-let listCtor t = (listType t).GetConstructor([||])
-let listCount t = (listType t).GetProperty("Count", [||]).GetMethod
-let listGetItem t = (listType t).GetProperty("Item", [|typeof<int>|]).GetMethod
-let listSetItem t = (listType t).GetProperty("Item", [|typeof<int>|]).SetMethod
-let listAdd t = (listType t).GetMethod("Add", [|ilType t|])
-let listRemoveAt t = (listType t).GetMethod("RemoveAt", [|typeof<int>|])
+let listCtor t = (listTy t).GetConstructor([||])
+let listCount t = (listTy t).GetProperty("Count", [||]).GetMethod
+let listGetItem t = (listTy t).GetProperty("Item", [|typeof<int>|]).GetMethod
+let listSetItem t = (listTy t).GetProperty("Item", [|typeof<int>|]).SetMethod
+let listAdd t = (listTy t).GetMethod("Add", [|ilTy t|])
+let listRemoveAt t = (listTy t).GetMethod("RemoveAt", [|typeof<int>|])
 
 type EmitEnv =
   { fns: Map<Id, MethodBuilder>
@@ -71,17 +71,17 @@ let rec emitInstr env instr =
   | NewList t -> il.Emit(OpCodes.Newobj, listCtor t)
 
   | Let (i, t, e, s) ->
-      let ilType = ilType t
+      let ilTy = ilTy t
 
       il.BeginScope()
-      let l = il.DeclareLocal(ilType)
+      let l = il.DeclareLocal(ilTy)
 
       emitInstr env e
       il.Emit(OpCodes.Stloc, l)
 
       emitInstr { env with vars = Map.add i l vars } s
 
-      if not ilType.IsValueType then
+      if not ilTy.IsValueType then
         il.Emit(OpCodes.Ldnull)
         il.Emit(OpCodes.Stloc, l)
 
@@ -267,12 +267,12 @@ let rec emitInstr env instr =
       emitInstr env a
       emitInstr env b
 
-let defineFn (ty: TypeBuilder) { name = name; args = args; retType = retType } _ =
-  let args = List.map (snd >> ilType) args
-  let retType = option typeof<Void> ilType retType
+let defineFn (ty: TypeBuilder) { name = name; args = args; retTy = retTy } _ =
+  let args = List.map (snd >> ilTy) args
+  let retTy = option typeof<Void> ilTy retTy
 
   let attrs = MethodAttributes.Private ||| MethodAttributes.HideBySig ||| MethodAttributes.Static
-  ty.DefineMethod(name, attrs, retType, List.toArray args)
+  ty.DefineMethod(name, attrs, retTy, List.toArray args)
 
 let compileFn (fns: Map<_, MethodBuilder>) { name = name; args = args } instr =
   let mtd = fns[name]
@@ -300,7 +300,7 @@ let compileProgram p =
 
   ty.CreateType()
 
-let runCompiledProgram (ty: System.Type) =
+let runCompiledProgram (ty: Type) =
   let program = ty.GetMethod("program", BindingFlags.NonPublic ||| BindingFlags.Static)
 
   try ignore <| program.Invoke(null, [||])

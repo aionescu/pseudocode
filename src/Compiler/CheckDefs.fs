@@ -18,7 +18,7 @@ let checkDuplicateFns fns =
 let checkProgramSig p =
   match Map.tryFind "program" p.fns with
   | None -> err "Missing program definition"
-  | Some ({ args = []; retType = None }, _) -> pure' p
+  | Some ({ args = []; retTy = None }, _) -> pure' p
   | _ -> err "Invalid signature for \"program\" function"
 
 let checkDuplicateArgs fnSig body =

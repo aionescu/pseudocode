@@ -7,23 +7,23 @@ type Instr =
   | PushInt of int
   | PushFloat of float
   | PushString of string
-  | NewList of Type
+  | NewList of Ty
 
-  | Let of Id * Type * Instr * Instr
+  | Let of Id * Ty * Instr * Instr
   | LoadVar of Id
   | SetVar of Id
   | Dup
 
-  | LoadIndex of Type
-  | SetIndex of Type
-  | Push of Type
-  | Pop of Type
+  | LoadIndex of Ty
+  | SetIndex of Ty
+  | Push of Ty
+  | Pop of Ty
 
-  | Read of Type
-  | Write of Type
+  | Read of Ty
+  | Write of Ty
   | WriteLine
 
-  | Length of Type option
+  | Length of Ty option
 
   | Not
   | Negate

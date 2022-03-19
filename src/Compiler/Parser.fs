@@ -136,7 +136,7 @@ exprRef.Value <- opp.ExpressionParser
 
 // Types
 
-let primType =
+let primTy =
   choice [
     stringReturn "Bool" Bool
     stringReturn "Int" Int
@@ -144,10 +144,10 @@ let primType =
     stringReturn "String" String
   ]
 
-let type', typeRef = createParserForwardedToRef ()
+let ty, tyRef = createParserForwardedToRef ()
 
-let listType = btwn '[' ']' type' |>> List
-typeRef.Value <- choice' [listType; primType] .>> ws
+let listTy = btwn '[' ']' ty |>> List
+tyRef.Value <- choice' [listTy; primTy] .>> ws
 
 // Stmts
 
@@ -158,7 +158,7 @@ let stmt, stmtRef = createParserForwardedToRef ()
 let let' =
   curry4 Let
   <!> (pstring "let" >>. ws >>. ident .>> ws)
-  <*> opt (colon >>. type')
+  <*> opt (colon >>. ty)
   <*> (equals >>. expr)
   <*> (stmtSep >>. stmt)
 
@@ -221,10 +221,10 @@ let stmtSimple =
 stmtRef.Value <- many stmtSimple |>> foldr (curry Seq) Nop
 
 let fnSig =
-  let mkFnSig n a r = { name = n; args = a; retType = r }
-  let arg = ident .>> ws .>> colon .>>. type'
+  let mkFnSig n a r = { name = n; args = a; retTy = r }
+  let arg = ident .>> ws .>> colon .>>. ty
   let args = btwn '(' ')' <| sepBy arg comma
-  let ret = opt (colon >>. type')
+  let ret = opt (colon >>. ty)
 
   choice' [
     pstring "program" >>. ws >>% mkFnSig "program" [] None

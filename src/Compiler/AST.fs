@@ -5,15 +5,15 @@ open Utils.TC
 
 type Id = string
 
-type Type =
+type Ty =
   | Bool
   | Int
   | Float
   | String
-  | List of Type
+  | List of Ty
 
-let rec showType = function
-  | List t -> "[" + showType t + "]"
+let rec showTy = function
+  | List t -> "[" + showTy t + "]"
   | t -> $"{t}"
 
 type ArithOp =
@@ -55,7 +55,7 @@ type Expr<'e> =
   | FnCall of Id * 'e list
 
 type UExpr = U of Expr<UExpr>
-type TExpr = T of Type * Expr<TExpr>
+type TExpr = T of Ty * Expr<TExpr>
 
 let unU (U e) = e
 let unT (T (t, e)) = (t, e)
@@ -64,7 +64,7 @@ let ex (T (_, e)) = e
 let mapEx f (T (t, e)) = T (t, f e)
 
 type Stmt<'e> =
-  | Let of Id * Type option * 'e * Stmt<'e>
+  | Let of Id * Ty option * 'e * Stmt<'e>
   | Assign of 'e * 'e
   | Push of 'e * 'e list
   | Pop of 'e
@@ -82,8 +82,8 @@ type Stmt<'e> =
 
 type FnSig =
   { name: Id
-    args: (Id * Type) list
-    retType: Type option
+    args: (Id * Ty) list
+    retTy: Ty option
   }
 
 type Program<'b> =

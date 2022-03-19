@@ -8,14 +8,14 @@ let panic () = failwith "Panic in TypeCheck"
 
 type Env =
   { fns: Map<Id, FnSig>
-    vars: Map<Id, Type>
+    vars: Map<Id, Ty>
     inLoop: bool
-    retType: Type option
+    retTy: Ty option
   }
 
 let mustBeNumeric = function
   | Int | Float -> pure' ()
-  | t -> err $"Expected numeric type, found {showType t}"
+  | t -> err $"Expected numeric type, found {showTy t}"
 
 let mustNotBeList reason = function
   | List _ -> err $"Values of list types cannot be {reason}"
@@ -33,7 +33,7 @@ let mustBe expected actual =
   if actual = expected then
     pure' ()
   else
-    err $"Expected type {showType expected}, but found {showType actual}"
+    err $"Expected type {showTy expected}, but found {showTy actual}"
 
 let rec mustBeLValue (U expr) =
   match expr with
@@ -54,7 +54,7 @@ and typeCheckFnCall f args =
   ask >>= fun { vars = vars; fns = fns } ->
   lookupFn f >>= fun f ->
   typeCheckArgs f args <&> fun args ->
-  f.retType, args
+  f.retTy, args
 
 and typeCheckExpr t (U expr) =
   match expr with
@@ -71,7 +71,7 @@ and typeCheckExpr t (U expr) =
             pure' (T (List t, ListLit ts))
           else
             err "Mismatched types in list literal"
-      | _ -> err $"Expected type {showType t}, but found list literal"
+      | _ -> err $"Expected type {showTy t}, but found list literal"
 
   | Var i -> lookupVar i >>= fun t' -> mustBe t t' &> T (t', Var i)
 
@@ -134,8 +134,8 @@ and typeCheckExpr t (U expr) =
       T (Bool, Logic (op, a, b))
 
   | FnCall (f, args) ->
-      typeCheckFnCall f args >>= fun (retType, args) ->
-      match retType with
+      typeCheckFnCall f args >>= fun (retTy, args) ->
+      match retTy with
       | Some t' -> mustBe t t' &> T (t, FnCall (f, args))
       | None -> err "Cannot use functions with no return type as expressions"
 
@@ -211,8 +211,8 @@ and typeInferExpr (U expr) =
       T (Bool, Logic (op, a, b))
 
   | FnCall (f, args) ->
-      typeCheckFnCall f args >>= fun (retType, args) ->
-      match retType with
+      typeCheckFnCall f args >>= fun (retTy, args) ->
+      match retTy with
       | Some t -> pure' <| T (t, FnCall (f, args))
       | None -> err "Cannot use functions with no return type as expressions"
 
@@ -297,7 +297,7 @@ let rec typeCheckStmt stmt: TC<string, Env, _> =
   | Continue -> mustBeInLoop "Continue" &> Continue
 
   | Return e ->
-      asks (fun e -> e.retType) >>= fun ret ->
+      asks (fun e -> e.retTy) >>= fun ret ->
 
       match e, ret with
       | Some e, Some t -> typeCheckExpr t e <&> (Some >> Return)
@@ -306,25 +306,25 @@ let rec typeCheckStmt stmt: TC<string, Env, _> =
       | None, Some t -> err "Cannot use return with no value in a function with a return type"
 
   | FnCallStmt (f, args) ->
-      typeCheckFnCall f args >>= fun (retType, args) ->
-      match retType with
+      typeCheckFnCall f args >>= fun (retTy, args) ->
+      match retTy with
       | None -> pure' <| FnCallStmt (f, args)
       | Some _ -> err "Cannot use functions with return type as statements"
 
   | Seq (a, b) -> curry Seq <!> typeCheckStmt a <*> typeCheckStmt b
   | Nop -> pure' Nop
 
-let typeCheckFn { name = name; args = args; retType = retType } body =
+let typeCheckFn { name = name; args = args; retTy = retTy } body =
   typeCheckStmt body
-  |> local (fun e -> { e with vars = Map.ofList args; retType = retType })
+  |> local (fun e -> { e with vars = Map.ofList args; retTy = retTy })
   |> mapErr ((+) $"In function \"{name}\": ")
 
 let typeCheck p =
   traverseFns typeCheckFn p
-  |> mapErr ((+) "Type error: ")
+  |> mapErr ((+) "Ty error: ")
   |> runTC
     { fns = mapVals fst p.fns
       vars = Map.empty
       inLoop = false
-      retType = None
+      retTy = None
     }

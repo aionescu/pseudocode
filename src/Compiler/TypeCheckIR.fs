@@ -8,10 +8,10 @@ open Compiler.IR
 
 type TypeCheckIREnv =
   { fns: Map<Id, FnSig>
-    vars: Map<Id, Type>
-    retType: Type option
+    vars: Map<Id, Ty>
+    retTy: Ty option
     inLoop: bool
-    stack: Type list
+    stack: Ty list
   }
 
 let lookupVar v =
@@ -19,7 +19,7 @@ let lookupVar v =
   >>= (explain $"Variable \"{v}\" not allocated" >> lift)
 
 let typeCheckCall f stack =
-  asks (fun e -> e.fns[f]) >>= fun { args = args; retType = retType } ->
+  asks (fun e -> e.fns[f]) >>= fun { args = args; retTy = retTy } ->
   let argc = List.length args
   let args = List.map snd args
   let stackArgs = List.rev <| List.take argc stack
@@ -27,10 +27,10 @@ let typeCheckCall f stack =
   if stackArgs <> args then
     err $"Invalid args in Call \"${f}\": Expected {args}, found {stackArgs}"
   else
-    pure' <| Option.toList retType @ List.skip argc stack
+    pure' <| Option.toList retTy @ List.skip argc stack
 
 let rec typeCheckInstr instr =
-  ask >>= fun { retType = retType; inLoop = inLoop; stack = stack } ->
+  ask >>= fun { retTy = retTy; inLoop = inLoop; stack = stack } ->
   match instr, stack with
   | PushBool _, _ -> pure' (Bool :: stack)
   | PushInt _, _ -> pure' (Int :: stack)
@@ -108,7 +108,7 @@ let rec typeCheckInstr instr =
   | (Break | Continue), [] when inLoop -> pure' []
 
   | Return, _ ->
-      match stack, retType with
+      match stack, retTy with
       | [], None -> pure' []
       | t' :: stack, Some t -> mustBe t t' &> stack
       | _ -> err "Return type mismatch"
@@ -130,9 +130,9 @@ and ensureEmptyStack inLoop label instr =
     | [] -> pure' ()
     | _ -> err $"{label} resulted in non-empty stack"
 
-let typeCheckFn { name = name; args = args; retType = retType } instr =
+let typeCheckFn { name = name; args = args; retTy = retTy } instr =
   ensureEmptyStack false name instr
-  |> local (fun e -> { e with vars = Map.ofList args; retType = retType })
+  |> local (fun e -> { e with vars = Map.ofList args; retTy = retTy })
   |> mapErr ((+) $"In function \"{name}\": ")
   &> instr
 
@@ -142,7 +142,7 @@ let typeCheckIR p =
   |> runTC
     { fns = mapVals fst p.fns
       vars = Map.empty
-      retType = None
+      retTy = None
       inLoop = false
       stack = []
     }
