@@ -6,6 +6,10 @@ open Compiler.IR
 
 let panic () = failwith "Panic in Lowering"
 
+let unList = function
+  | List t -> t
+  | _ -> panic ()
+
 let rec lowerExpr args (T (t, e)) =
   match e with
   | BoolLit b -> [PushBool b]
@@ -14,13 +18,8 @@ let rec lowerExpr args (T (t, e)) =
   | StringLit s -> [PushString s]
 
   | ListLit es ->
-      let t =
-        match t with
-        | List t -> t
-        | _ -> panic ()
-
       let setElem e = Dup :: (lowerExpr args e @ [ListPush <| ty e])
-      NewList t :: List.collect setElem es
+      NewList (unList t) :: List.collect setElem es
 
   | Var i ->
       match List.tryFindIndex ((=) i) args with
@@ -69,10 +68,7 @@ let rec lowerStmt args stmt =
       | es, [e] -> lowerExpr args i @ List.collect setElem es @ lowerExpr args e @ [ListPush <| ty e]
       | _ -> panic ()
 
-  | Pop i ->
-      match ty i with
-      | List t -> lowerExpr args i @ [ListPop t]
-      | _ -> panic ()
+  | Pop i -> lowerExpr args i @ [ListPop <| unList (ty i)]
 
   | Stmt.Write es ->
       let writeSingle e = lowerExpr args e @ [Write <| ty e]
@@ -81,7 +77,7 @@ let rec lowerStmt args stmt =
   | Stmt.If (c, t, e) -> lowerExpr args c @ [If (lowerStmt args t, lowerStmt args e)]
   | Stmt.While (c, s) -> [While (lowerExpr args c, lowerStmt args s)]
   | Stmt.DoWhile (s, c) -> [DoWhile (lowerStmt args s, lowerExpr args c)]
-  | Stmt.For (i, a, down, b, s) -> [For (i, lowerExpr args a, down, lowerExpr args b, lowerStmt args s)]
+  | Stmt.For (i, a, down, b, s) -> [Let (i, Int, lowerExpr args a, [For (i, down, lowerExpr args b, lowerStmt args s)])]
 
   | Stmt.Break -> [Break]
   | Stmt.Continue -> [Continue]

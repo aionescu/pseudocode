@@ -4,8 +4,6 @@ open Utils.Misc
 open Utils.TC
 open Compiler.AST
 
-let panic () = failwith "Panic in TypeCheck"
-
 type Env =
   { fns: Map<Id, FnSig>
     vars: Map<Id, Ty>
@@ -41,12 +39,12 @@ let rec mustBeLValue (U expr) =
 
 let rec typeCheckArgs { name = name; args = fArgs } args =
   let types = List.map snd fArgs
+  let ordering = compare (List.length args) (List.length types)
 
-  match compare (List.length args) (List.length types) with
-  | -1 -> err $"Function \"{name}\" called with too few arguments"
-  | 1 -> err $"Function \"{name}\" called with too many arguments"
-  | 0 -> List.zip types args |> traverse (uncurry typeCheckExpr)
-  | _ -> panic ()
+  if ordering <> 0 then
+    err $"""Function "{name}" called with too {if ordering < 0 then "few" else "many"} arguments"""
+  else
+    List.zip types args |> traverse (uncurry typeCheckExpr)
 
 and typeCheckFnCall f args =
   ask >>= fun { vars = vars; fns = fns } ->

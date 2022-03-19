@@ -8,8 +8,6 @@ open Utils.Misc
 open Compiler.AST
 open Compiler.IR
 
-let panic () = failwith "Panic in Codegen"
-
 let ilList = typedefof<Collections.Generic.List<_>>
 
 let rec ilTy = function
@@ -192,26 +190,19 @@ let rec emitInstr env instr =
       il.Emit(OpCodes.Brtrue, loopLbl)
       il.MarkLabel(doneLbl)
 
-  | For (i, init, down, bound, s) ->
-      il.BeginScope()
+  | For (i, down, b, s) ->
+      let l = vars[i]
 
       let loopLbl = il.DefineLabel()
       let updateLbl = il.DefineLabel()
       let doneLbl = il.DefineLabel()
 
-      let l = il.DeclareLocal(typeof<int>)
-      let b = il.DeclareLocal(typeof<int>)
-
-      emitInstrs env init
-      il.Emit(OpCodes.Stloc, l)
-
-      emitInstrs env bound
-      il.Emit(OpCodes.Stloc, b)
+      emitInstrs env b
 
       il.MarkLabel(loopLbl)
+      il.Emit(OpCodes.Dup)
       il.Emit(OpCodes.Ldloc, l)
-      il.Emit(OpCodes.Ldloc, b)
-      il.Emit(if down then OpCodes.Clt else OpCodes.Cgt)
+      il.Emit(if down then OpCodes.Cgt else OpCodes.Clt)
 
       il.Emit(OpCodes.Brtrue, doneLbl)
       emitInstrs { env with vars = Map.add i l vars; breakLbl = doneLbl; contLbl = updateLbl } s
@@ -225,7 +216,7 @@ let rec emitInstr env instr =
       il.Emit(OpCodes.Br, loopLbl)
       il.MarkLabel(doneLbl)
 
-      il.EndScope()
+      il.Emit(OpCodes.Pop)
 
   | Break -> il.Emit(OpCodes.Br, breakLbl)
   | Continue -> il.Emit(OpCodes.Br, contLbl)
