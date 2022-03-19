@@ -57,11 +57,8 @@ type Expr<'e> =
 type UExpr = U of Expr<UExpr>
 type TExpr = T of Ty * Expr<TExpr>
 
-let unU (U e) = e
-let unT (T (t, e)) = (t, e)
 let ty (T (t, _)) = t
 let ex (T (_, e)) = e
-let mapEx f (T (t, e)) = T (t, f e)
 
 type Stmt<'e> =
   | Let of Id * Ty option * 'e * Stmt<'e>
