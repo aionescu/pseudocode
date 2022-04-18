@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <Compile Include="src/Utils/Misc.fs"/>
+    <Compile Include="src/Utils/Reflection.fs"/>
     <Compile Include="src/Utils/TC.fs"/>
 
     <Compile Include="src/Compiler/AST.fs"/>

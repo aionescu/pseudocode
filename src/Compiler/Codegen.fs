@@ -5,41 +5,11 @@ open System.Reflection
 open System.Reflection.Emit
 
 open Utils.Misc
+open Utils.Reflection
 open Compiler.AST
 open Compiler.IR
 
-let ilList = typedefof<Collections.Generic.List<_>>
-
-let rec ilTy = function
-  | Bool -> typeof<bool>
-  | Int -> typeof<int>
-  | Float -> typeof<float>
-  | String -> typeof<string>
-  | List t -> ilList.MakeGenericType([|ilTy t|])
-
-let listTy = List >> ilTy
-
-let mathPow = typeof<Math>.GetMethod("Pow", [|typeof<float>; typeof<float>|])
-
-let readLine = typeof<Console>.GetMethod("ReadLine", [||])
-let writeLine = typeof<Console>.GetMethod("WriteLine", [||])
-let writeTy t = typeof<Console>.GetMethod("Write", [|ilTy t|])
-let parseTy t = (ilTy t).GetMethod("Parse", [|typeof<string>|])
-
-let stringConcat = typeof<string>.GetMethod("Concat", [|typeof<string>; typeof<string>|])
-let stringCompare = typeof<string>.GetMethod("Compare", [|typeof<string>; typeof<string>|])
-let stringEq = typeof<string>.GetMethod("op_Equality", [|typeof<string>; typeof<string>|])
-let stringNeq = typeof<string>.GetMethod("op_Inequality", [|typeof<string>; typeof<string>|])
-let stringLength = typeof<string>.GetMethod("get_Length", [||])
-
-let listCtor t = (listTy t).GetConstructor([||])
-let listCount t = (listTy t).GetProperty("Count", [||]).GetMethod
-let listGetItem t = (listTy t).GetProperty("Item", [|typeof<int>|]).GetMethod
-let listSetItem t = (listTy t).GetProperty("Item", [|typeof<int>|]).SetMethod
-let listAdd t = (listTy t).GetMethod("Add", [|ilTy t|])
-let listRemoveAt t = (listTy t).GetMethod("RemoveAt", [|typeof<int>|])
-
-type IL = ILGenerator
+open type OpCodes
 
 type Env =
   { fns: Map<Id, MethodBuilder>
@@ -49,20 +19,28 @@ type Env =
     contLbl: Label
   }
 
-let emitNot (il: IL) =
-  il.Emit(OpCodes.Ldc_I4_0)
-  il.Emit(OpCodes.Ceq)
+type ILGenerator with
+  member il.EmitNot() =
+    il.Emit(Ldc_I4_0)
+    il.Emit(Ceq)
+
+let rec ilTy = function
+  | Bool -> ilBool
+  | Int -> ilInt
+  | Float -> ilFloat
+  | String -> ilString
+  | List t -> ilList (ilTy t)
 
 let rec emitInstr env instr =
   let { fns = fns; vars = vars; il = il; breakLbl = breakLbl; contLbl = contLbl } = env
 
   match instr with
-  | PushBool b -> il.Emit(if b then OpCodes.Ldc_I4_1 else OpCodes.Ldc_I4_0)
-  | PushInt i -> il.Emit(OpCodes.Ldc_I4, i)
-  | PushFloat f -> il.Emit(OpCodes.Ldc_R8, f)
-  | PushString s -> il.Emit(OpCodes.Ldstr, s)
+  | PushBool b -> il.Emit(if b then Ldc_I4_1 else Ldc_I4_0)
+  | PushInt i -> il.Emit(Ldc_I4, i)
+  | PushFloat f -> il.Emit(Ldc_R8, f)
+  | PushString s -> il.Emit(Ldstr, s)
 
-  | NewList t -> il.Emit(OpCodes.Newobj, listCtor t)
+  | NewList t -> il.Emit(Newobj, listCtor <| ilTy t)
 
   | Let (i, t, e, s) ->
       let ilTy = ilTy t
@@ -71,96 +49,96 @@ let rec emitInstr env instr =
       let l = il.DeclareLocal(ilTy)
 
       emitInstrs env e
-      il.Emit(OpCodes.Stloc, l)
+      il.Emit(Stloc, l)
 
       emitInstrs { env with vars = Map.add i l vars } s
       il.EndScope()
 
-  | LoadVar i -> il.Emit(OpCodes.Ldloc, vars[i])
-  | SetVar i -> il.Emit(OpCodes.Stloc, vars[i])
+  | LoadVar i -> il.Emit(Ldloc, vars[i])
+  | SetVar i -> il.Emit(Stloc, vars[i])
 
-  | LoadArg i -> il.Emit(OpCodes.Ldarg, i)
-  | SetArg i -> il.Emit(OpCodes.Starg, i)
+  | LoadArg i -> il.Emit(Ldarg, i)
+  | SetArg i -> il.Emit(Starg, i)
 
-  | Dup -> il.Emit(OpCodes.Dup)
+  | Dup -> il.Emit(Dup)
 
-  | LoadIndex t -> il.Emit(OpCodes.Callvirt, listGetItem t)
-  | SetIndex t -> il.Emit(OpCodes.Callvirt, listSetItem t)
+  | LoadIndex t -> il.Emit(Call, listGetItem <| ilTy t)
+  | SetIndex t -> il.Emit(Call, listSetItem <| ilTy t)
 
-  | ListPush t -> il.Emit(OpCodes.Callvirt, listAdd t)
+  | ListPush t -> il.Emit(Call, listAdd <| ilTy t)
   | ListPop t ->
-      il.Emit(OpCodes.Dup)
-      il.Emit(OpCodes.Callvirt, listCount t)
-      il.Emit(OpCodes.Ldc_I4_1)
-      il.Emit(OpCodes.Sub)
-      il.Emit(OpCodes.Callvirt, listRemoveAt t)
+      il.Emit(Dup)
+      il.Emit(Call, listCount <| ilTy t)
+      il.Emit(Ldc_I4_1)
+      il.Emit(Sub)
+      il.Emit(Call, listRemoveAt <| ilTy t)
 
   | Read t ->
-      il.Emit(OpCodes.Call, readLine)
+      il.Emit(Call, consoleReadLine)
 
       if t <> String then
-        il.Emit(OpCodes.Call, parseTy t)
+        il.Emit(Call, staticParse <| ilTy t)
 
-  | Write t -> il.Emit(OpCodes.Call, writeTy t)
-  | WriteLine -> il.Emit(OpCodes.Call, writeLine)
+  | Write t -> il.Emit(Call, consoleWrite <| ilTy t)
+  | WriteLine -> il.Emit(Call, consoleWriteLine)
 
-  | StrLength -> il.Emit(OpCodes.Call, stringLength)
-  | ListLength t -> il.Emit(OpCodes.Callvirt, listCount t)
+  | StrLength -> il.Emit(Call, stringLength)
+  | ListLength t -> il.Emit(Call, listCount <| ilTy t)
 
-  | Not -> emitNot il
-  | Negate -> il.Emit(OpCodes.Neg)
+  | Not -> il.EmitNot()
+  | Negate -> il.Emit(Neg)
 
-  | Append -> il.Emit(OpCodes.Call, stringConcat)
+  | Append -> il.Emit(Call, stringConcat)
 
-  | Pow -> il.Emit(OpCodes.Call, mathPow)
+  | Pow -> il.Emit(Call, mathPow)
 
-  | Arith Add -> il.Emit(OpCodes.Add)
-  | Arith Sub -> il.Emit(OpCodes.Sub)
-  | Arith Mul -> il.Emit(OpCodes.Mul)
-  | Arith Div -> il.Emit(OpCodes.Div)
-  | Arith Mod -> il.Emit(OpCodes.Rem)
+  | Arith Add -> il.Emit(Add)
+  | Arith Sub -> il.Emit(Sub)
+  | Arith Mul -> il.Emit(Mul)
+  | Arith Div -> il.Emit(Div)
+  | Arith Mod -> il.Emit(Rem)
 
-  | Comp Eq -> il.Emit(OpCodes.Ceq)
-  | Comp Lt -> il.Emit(OpCodes.Clt)
-  | Comp Gt -> il.Emit(OpCodes.Cgt)
+  | Comp Eq -> il.Emit(Ceq)
+  | Comp Lt -> il.Emit(Clt)
+  | Comp Gt -> il.Emit(Cgt)
   | Comp Neq ->
-      il.Emit(OpCodes.Ceq)
-      emitNot il
+      il.Emit(Ceq)
+      il.EmitNot()
   | Comp Lte ->
-      il.Emit(OpCodes.Cgt)
-      emitNot il
+      il.Emit(Cgt)
+      il.EmitNot()
   | Comp Gte ->
-      il.Emit(OpCodes.Clt)
-      emitNot il
+      il.Emit(Clt)
+      il.EmitNot()
 
-  | StrComp Eq -> il.Emit(OpCodes.Call, stringEq)
-  | StrComp Neq -> il.Emit(OpCodes.Call, stringNeq)
+  | StrComp Eq -> il.Emit(Call, stringEq)
+  | StrComp Neq -> il.Emit(Call, stringNeq)
   | StrComp Lt ->
-      il.Emit(OpCodes.Call, stringCompare)
-      il.Emit(OpCodes.Ldc_I4_0)
-      il.Emit(OpCodes.Clt)
+      il.Emit(Call, stringCompare)
+      il.Emit(Ldc_I4_0)
+      il.Emit(Clt)
   | StrComp Gt ->
-      il.Emit(OpCodes.Call, stringCompare)
-      il.Emit(OpCodes.Ldc_I4_0)
-      il.Emit(OpCodes.Cgt)
+      il.Emit(Call, stringCompare)
+      il.Emit(Ldc_I4_0)
+      il.Emit(Cgt)
   | StrComp Lte ->
-      il.Emit(OpCodes.Call, stringCompare)
-      il.Emit(OpCodes.Ldc_I4_0)
-      il.Emit(OpCodes.Cgt)
-      emitNot il
+      il.Emit(Call, stringCompare)
+      il.Emit(Ldc_I4_0)
+      il.Emit(Cgt)
+      il.EmitNot()
   | StrComp Gte ->
-      il.Emit(OpCodes.Call, stringCompare)
-      il.Emit(OpCodes.Ldc_I4_0)
-      il.Emit(OpCodes.Clt)
-      emitNot il
+      il.Emit(Call, stringCompare)
+      il.Emit(Ldc_I4_0)
+      il.Emit(Clt)
+      il.EmitNot()
 
   | If (t, f) ->
       let elseLbl = il.DefineLabel()
       let doneLbl = il.DefineLabel()
 
-      il.Emit(OpCodes.Brfalse, elseLbl)
+      il.Emit(Brfalse, elseLbl)
       emitInstrs env t
-      il.Emit(OpCodes.Br, doneLbl)
+      il.Emit(Br, doneLbl)
 
       il.MarkLabel(elseLbl)
       emitInstrs env f
@@ -173,10 +151,10 @@ let rec emitInstr env instr =
       il.MarkLabel(loopLbl)
       emitInstrs env c
 
-      il.Emit(OpCodes.Brfalse, doneLbl)
+      il.Emit(Brfalse, doneLbl)
       emitInstrs { env with breakLbl = doneLbl; contLbl = loopLbl } s
 
-      il.Emit(OpCodes.Br, loopLbl)
+      il.Emit(Br, loopLbl)
       il.MarkLabel(doneLbl)
 
   | DoWhile (s, c) ->
@@ -187,7 +165,7 @@ let rec emitInstr env instr =
       emitInstrs { env with breakLbl = doneLbl; contLbl = loopLbl } s
 
       emitInstrs env c
-      il.Emit(OpCodes.Brtrue, loopLbl)
+      il.Emit(Brtrue, loopLbl)
       il.MarkLabel(doneLbl)
 
   | For (i, down, b, s) ->
@@ -200,29 +178,29 @@ let rec emitInstr env instr =
       emitInstrs env b
 
       il.MarkLabel(loopLbl)
-      il.Emit(OpCodes.Dup)
-      il.Emit(OpCodes.Ldloc, l)
-      il.Emit(if down then OpCodes.Cgt else OpCodes.Clt)
+      il.Emit(Dup)
+      il.Emit(Ldloc, l)
+      il.Emit(if down then Cgt else Clt)
 
-      il.Emit(OpCodes.Brtrue, doneLbl)
+      il.Emit(Brtrue, doneLbl)
       emitInstrs { env with vars = Map.add i l vars; breakLbl = doneLbl; contLbl = updateLbl } s
 
       il.MarkLabel(updateLbl)
-      il.Emit(OpCodes.Ldloc, l)
-      il.Emit(OpCodes.Ldc_I4_1)
-      il.Emit(if down then OpCodes.Sub else OpCodes.Add)
-      il.Emit(OpCodes.Stloc, l)
+      il.Emit(Ldloc, l)
+      il.Emit(Ldc_I4_1)
+      il.Emit(if down then Sub else Add)
+      il.Emit(Stloc, l)
 
-      il.Emit(OpCodes.Br, loopLbl)
+      il.Emit(Br, loopLbl)
       il.MarkLabel(doneLbl)
 
-      il.Emit(OpCodes.Pop)
+      il.Emit(Pop)
 
-  | Break -> il.Emit(OpCodes.Br, breakLbl)
-  | Continue -> il.Emit(OpCodes.Br, contLbl)
-  | Return -> il.Emit(OpCodes.Ret)
+  | Break -> il.Emit(Br, breakLbl)
+  | Continue -> il.Emit(Br, contLbl)
+  | Return -> il.Emit(Ret)
 
-  | Call f -> il.Emit(OpCodes.Call, fns[f] :> MethodInfo)
+  | Call f -> il.Emit(Call, fns[f] :> MethodInfo)
 
 and emitInstrs env = List.iter (emitInstr env)
 
@@ -246,7 +224,7 @@ let compileFn (fns: Map<_, MethodBuilder>) { name = name } instrs =
     }
     instrs
 
-  il.Emit(OpCodes.Ret)
+  il.Emit(Ret)
 
 let compile p =
   let asm = AssemblyBuilder.DefineDynamicAssembly(AssemblyName("Pseudocode"), AssemblyBuilderAccess.Run)
@@ -261,7 +239,7 @@ let compile p =
 let runProgram (ty: Type) =
   let program = ty.GetMethod("program", BindingFlags.NonPublic ||| BindingFlags.Static)
 
-  try ignore <| program.Invoke(null, [||])
+  try program.Invoke(null, [||]) |> ignore
   with :? TargetInvocationException as e ->
     printfn "An exception was thrown:"
     printfn "%A" e.InnerException
