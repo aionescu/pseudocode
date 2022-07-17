@@ -54,8 +54,8 @@ type Expr<'e> =
   | Logic of LogicOp * 'e * 'e
   | FnCall of Id * 'e list
 
-type UExpr = U of Expr<UExpr>
-type TExpr = T of Ty * Expr<TExpr>
+[<Struct>] type UExpr = U of Expr<UExpr>
+[<Struct>] type TExpr = T of Ty * Expr<TExpr>
 
 let ty (T (t, _)) = t
 let ex (T (_, e)) = e
