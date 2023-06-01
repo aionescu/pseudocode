@@ -4,7 +4,7 @@ Pseudocode compiler for .NET
 
 ## Examples
 
-You can find some test programs in the [Examples](Examples) folder.
+You can find some test programs in the [examples](examples) folder.
 
 ## Building & Running
 
@@ -12,7 +12,7 @@ You will need the .NET SDK, which can be downloaded [here](https://dotnet.micros
 
 To build, run `dotnet build` in the repo's root directory.
 
-To run the compiler, run `dotnet run <file>` (e.g. `dotnet run Examples/Factorial.psc`). This will also build the project if it was not built beforehand.
+To run the compiler, run `dotnet run <file>` (e.g. `dotnet run examples/factorial.psc`). This will also build the project if it was not built beforehand.
 
 ## VS Code Extension
 

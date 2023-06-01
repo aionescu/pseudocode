@@ -4,7 +4,7 @@ program
   do
     write i
     i = i + 1
-  while i <= 10
+  while i <= 10;
 
   write "Done"
 
