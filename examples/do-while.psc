@@ -2,11 +2,11 @@ program
   let i = 0
 
   do
-    write i;
-    i = i + 1;
+    write i
+    i = i + 1
   while i <= 10
 
-  write "Done"
+  write "---"
 
   {-
     This is a
@@ -16,5 +16,12 @@ program
   while i >= 0 do
     write i
     i = i - 1
+  end
+
+  write "---"
+
+  while i <= 10 do
+    write i;
+    i = i + 1;
   end
 end
