@@ -1,9 +1,9 @@
-module Compiler.Parser
+module Language.Pseudocode.Parser
 
 open FParsec
 
 open Utils.Misc
-open Compiler.AST
+open Language.Pseudocode.Syntax
 
 type Parser<'a> = Parser<'a, unit>
 

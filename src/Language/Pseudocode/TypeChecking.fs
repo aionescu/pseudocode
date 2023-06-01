@@ -1,8 +1,8 @@
-module Compiler.TypeCheck
+module Language.Pseudocode.TypeChecking
 
 open Utils.Misc
-open Utils.TC
-open Compiler.AST
+open Control.Monad.TC
+open Language.Pseudocode.Syntax
 
 type Env =
   { fns: Map<Id, FnSig>
@@ -10,6 +10,10 @@ type Env =
     inLoop: bool
     retTy: Ty option
   }
+
+let explain e = function
+  | None -> Error e
+  | Some a -> Ok a
 
 let mustBeNumeric = function
   | Int | Float -> pure' ()

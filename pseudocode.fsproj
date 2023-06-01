@@ -13,15 +13,14 @@
 
   <ItemGroup>
     <Compile Include="src/Utils/Misc.fs"/>
-    <Compile Include="src/Utils/Reflection.fs"/>
-    <Compile Include="src/Utils/TC.fs"/>
+    <Compile Include="src/Control/Monad/TC.fs"/>
 
-    <Compile Include="src/Compiler/AST.fs"/>
-    <Compile Include="src/Compiler/Parser.fs"/>
-    <Compile Include="src/Compiler/TypeCheck.fs"/>
-    <Compile Include="src/Compiler/IR.fs"/>
-    <Compile Include="src/Compiler/Lowering.fs"/>
-    <Compile Include="src/Compiler/Codegen.fs"/>
+    <Compile Include="src/Language/Pseudocode/Syntax.fs"/>
+    <Compile Include="src/Language/Pseudocode/Parser.fs"/>
+    <Compile Include="src/Language/Pseudocode/TypeChecking.fs"/>
+    <Compile Include="src/Language/Pseudocode/IR.fs"/>
+    <Compile Include="src/Language/Pseudocode/Lowering.fs"/>
+    <Compile Include="src/Language/Pseudocode/Codegen.fs"/>
 
     <Compile Include="src/Main.fs"/>
   </ItemGroup>

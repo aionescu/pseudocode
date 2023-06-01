@@ -18,8 +18,6 @@ let (>..) f g a b = g <| f a b
 
 let pair a b = (a, b)
 
-let swap (a, b) = (b, a)
-
 // List
 
 let cons x xs = x :: xs
@@ -29,20 +27,8 @@ let foldr f z xs = List.foldBack f xs z
 let duplicatesBy f l =
   List.groupBy f l
   |> List.filter (fun (_, l) -> List.length l > 1)
-  |> List.map (fun (name, _) -> name)
+  |> List.map fst
 
 // Map
 
 let mapVals f = Map.map (const' f)
-
-// Option
-
-let option z f = function
-  | None -> z
-  | Some a -> f a
-
-// Result
-
-let explain e = option (Error e) Ok
-
-let (>=>) f g = f >> Result.bind g

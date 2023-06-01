@@ -3,11 +3,10 @@ module Main
 open System
 open System.IO
 
-open Utils.Misc
-open Compiler.Parser
-open Compiler.TypeCheck
-open Compiler.Lowering
-open Compiler.Codegen
+open Language.Pseudocode.Parser
+open Language.Pseudocode.TypeChecking
+open Language.Pseudocode.Lowering
+open Language.Pseudocode.Codegen
 
 let getInput = function
   | [|"-"|] -> Ok ("<stdin>", Console.In.ReadToEnd())
@@ -18,7 +17,7 @@ let getInput = function
 
 let runCompiler args =
   getInput args
-  |> Result.bind (parse >=> typeCheck)
+  |> Result.bind (parse >> Result.bind typeCheck)
   |> Result.map (lower >> compile >> runProgram)
 
 [<EntryPoint>]

@@ -1,8 +1,7 @@
-module Compiler.Lowering
+module Language.Pseudocode.Lowering
 
-open Utils.Misc
-open Compiler.AST
-open Compiler.IR
+open Language.Pseudocode.Syntax
+open Language.Pseudocode.IR
 
 let panic () = failwith "Panic in Lowering"
 
@@ -31,7 +30,8 @@ let rec lowerExpr args (T (t, e)) =
       lowerExpr args e @
         match ty e with
         | List t -> [ListLength t]
-        | _ -> [StrLength]
+        | String -> [StrLength]
+        | _ -> panic ()
 
   | Subscript (a, i) -> lowerExpr args a @ lowerExpr args i @ [LoadIndex t]
   | Expr.Not e -> lowerExpr args e @ [Not]

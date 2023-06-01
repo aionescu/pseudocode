@@ -1,15 +1,41 @@
-module Compiler.Codegen
+module Language.Pseudocode.Codegen
 
 open System
+open System.Collections.Generic
 open System.Reflection
 open System.Reflection.Emit
 
 open Utils.Misc
-open Utils.Reflection
-open Compiler.AST
-open Compiler.IR
+open Language.Pseudocode.Syntax
+open Language.Pseudocode.IR
 
 open type OpCodes
+
+// Reflection utils
+
+let ilList t = typedefof<List<_>>.MakeGenericType([|t|])
+
+let mathPow = typeof<Math>.GetMethod("Pow", [|typeof<float>; typeof<float>|])
+
+let consoleReadLine = typeof<Console>.GetMethod("ReadLine", [||])
+let consoleWriteLine = typeof<Console>.GetMethod("WriteLine", [||])
+let consoleWrite t = typeof<Console>.GetMethod("Write", [|t|])
+let staticParse (t: Type) = t.GetMethod("Parse", [|typeof<string>|])
+
+let stringConcat = typeof<string>.GetMethod("Concat", [|typeof<string>; typeof<string>|])
+let stringCompare = typeof<string>.GetMethod("Compare", [|typeof<string>; typeof<string>|])
+let stringEq = typeof<string>.GetMethod("op_Equality", [|typeof<string>; typeof<string>|])
+let stringNeq = typeof<string>.GetMethod("op_Inequality", [|typeof<string>; typeof<string>|])
+let stringLength = typeof<string>.GetMethod("get_Length", [||])
+
+let listCtor t = (ilList t).GetConstructor([||])
+let listCount t = (ilList t).GetMethod("get_Count", [||])
+let listGetItem t = (ilList t).GetMethod("get_Item", [|typeof<int>|])
+let listSetItem t = (ilList t).GetMethod("set_Item", [|typeof<int>; t|])
+let listAdd t = (ilList t).GetMethod("Add", [|t|])
+let listRemoveAt t = (ilList t).GetMethod("RemoveAt", [|typeof<int>|])
+
+// IL generation
 
 type Env =
   { fns: Map<Id, MethodBuilder>
@@ -25,10 +51,10 @@ type ILGenerator with
     il.Emit(Ceq)
 
 let rec ilTy = function
-  | Bool -> ilBool
-  | Int -> ilInt
-  | Float -> ilFloat
-  | String -> ilString
+  | Bool -> typeof<bool>
+  | Int -> typeof<int>
+  | Float -> typeof<float>
+  | String -> typeof<string>
   | List t -> ilList (ilTy t)
 
 let rec emitInstr env instr =
@@ -206,7 +232,10 @@ and emitInstrs env = List.iter (emitInstr env)
 
 let defineFn (ty: TypeBuilder) { name = name; args = args; retTy = retTy } _ =
   let args = List.map (snd >> ilTy) args
-  let retTy = option typeof<Void> ilTy retTy
+  let retTy =
+    match retTy with
+    | None -> typeof<Void>
+    | Some t -> ilTy t
 
   let attrs = MethodAttributes.Private ||| MethodAttributes.HideBySig ||| MethodAttributes.Static
   ty.DefineMethod(name, attrs, retTy, List.toArray args)

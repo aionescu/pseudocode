@@ -1,7 +1,7 @@
-module Compiler.AST
+module Language.Pseudocode.Syntax
 
 open Utils.Misc
-open Utils.TC
+open Control.Monad.TC
 
 type Id = string
 

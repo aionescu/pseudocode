@@ -1,4 +1,4 @@
-module Utils.TC
+module Control.Monad.TC
 
 open Utils.Misc
 

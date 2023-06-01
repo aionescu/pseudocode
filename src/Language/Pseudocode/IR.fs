@@ -1,6 +1,6 @@
-module Compiler.IR
+module Language.Pseudocode.IR
 
-open Compiler.AST
+open Language.Pseudocode.Syntax
 
 type Instr =
   | PushBool of bool
