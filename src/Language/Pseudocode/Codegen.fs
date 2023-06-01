@@ -5,7 +5,6 @@ open System.Collections.Generic
 open System.Reflection
 open System.Reflection.Emit
 
-open Utils.Misc
 open Language.Pseudocode.Syntax
 open Language.Pseudocode.IR
 

@@ -12,7 +12,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="src/Utils/Misc.fs"/>
+    <Compile Include="src/Utils.fs"/>
+
     <Compile Include="src/Control/Monad/TC.fs"/>
 
     <Compile Include="src/Language/Pseudocode/Syntax.fs"/>

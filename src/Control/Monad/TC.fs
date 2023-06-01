@@ -1,6 +1,6 @@
 module Control.Monad.TC
 
-open Utils.Misc
+open Utils
 
 // The "Type Checking" monad
 // =~ ReaderT r (Either e) a
@@ -17,6 +17,8 @@ let ask = TC Ok
 let asks f = TC (Ok << f)
 
 let local f (TC tc) = TC (tc << f)
+
+let mapErr f (TC tc) = TC (Result.mapError f << tc)
 
 let (<!>) f (TC tc) = TC (Result.map f << tc)
 
@@ -52,7 +54,12 @@ let unless b m = if b then pure' () else m
 let rec traverse f xs =
   match xs with
   | [] -> pure' []
-  | x :: xs -> cons <!> f x <*> traverse f xs
+  | x :: xs -> curry List.Cons <!> f x <*> traverse f xs
+
+let rec traverse_ f xs =
+  match xs with
+  | [] -> pure' ()
+  | x :: xs -> f x *> traverse_ f xs
 
 let rec traversePair f (a, b) = pair a <!> f b
 
@@ -60,12 +67,3 @@ let rec traverseMap f xs =
   Map.toList xs
   |> traverse (traversePair f)
   <&> Map.ofList
-
-let rec traverse_ f xs =
-  match xs with
-  | [] -> pure' ()
-  | x :: xs -> f x *> traverse_ f xs
-
-let sequence xs = traverse id xs
-
-let mapErr f (TC tc) = TC (Result.mapError f << tc)

@@ -2,7 +2,7 @@ module Language.Pseudocode.Parser
 
 open FParsec
 
-open Utils.Misc
+open Utils
 open Language.Pseudocode.Syntax
 
 type Parser<'a> = Parser<'a, unit>
@@ -12,42 +12,30 @@ let (<*>) f a = pipe2 f a (<|)
 
 // Misc Parsers
 
-let singleLineComment = pstring "--" >>. skipRestOfLine true
-let multiLineComment = pstring "{-" >>. skipManyTill anyChar (pstring "-}")
-let endLine =
-  let r = skipChar '\r'
-  let n = skipChar '\n'
-  choice [attempt (r >>. n); r; n]
+let singleLineComm = pstring "--" >>. skipRestOfLine true
+let multiLineComm = pstring "{-" >>. skipManyTill anyChar (pstring "-}")
 
-let ws1 = skipMany1 (choice [skipChar ' '; skipChar '\t'; multiLineComment])
+let ws1 = skipMany1 (choice [skipChar ' '; skipChar '\t'; multiLineComm])
 let ws = ws1 <|>% ()
 
-let wsMulti = skipMany (choice [singleLineComment; endLine; ws1])
-let stmtSep = choice [skipChar ';'; singleLineComment; endLine; eof] >>. wsMulti
+let lexeme p = p .>> ws
+let symbol s = pstring s .>> ws
 
-let comma = pchar ',' .>> ws
-let equals = pchar '=' .>> ws
-let colon = pchar ':' .>> ws
+let wsMulti = skipMany (choice [singleLineComm; skipNewline; ws1])
+let stmtSep = choice [skipChar ';'; singleLineComm; skipNewline; eof] >>. wsMulti
 
-let choice' ps = choice <| List.map attempt ps
+let parens p = between (symbol "(") (symbol ")") p
+let sqBr p = between (symbol "[") (symbol "]") p
 
-let btwn l r = between (pchar l .>> ws) (pchar r .>> ws)
+let comma = symbol ","
+let equals = symbol "="
+let colon = symbol ":"
 
 // Exprs
 
-let boolLit =
-  choice [
-    stringReturn "False" (U <| BoolLit false)
-    stringReturn "True" (U <| BoolLit true)
-  ]
-
-let numberFormat =
-  NumberLiteralOptions.AllowMinusSign
-  ||| NumberLiteralOptions.AllowFraction
-  ||| NumberLiteralOptions.AllowExponent
-
 let numLit =
-  numberLiteral numberFormat "numeric literal" |>> fun nl ->
+  let numFormat = NumberLiteralOptions.AllowMinusSign ||| NumberLiteralOptions.AllowFraction ||| NumberLiteralOptions.AllowExponent
+  lexeme (numberLiteral numFormat "numeric literal") |>> fun nl ->
     if nl.IsInteger then
       U << IntLit <| int nl.String
     else
@@ -64,14 +52,14 @@ let stringLit: Parser<_> =
 
   let escapedChar = pchar '\\' >>. (anyOf "\\nrt\"" |>> unescape)
 
-  between (pchar '"') (pchar '"') (manyChars <| choice [normalChar; escapedChar])
+  manyChars (normalChar <|> escapedChar)
+  |> between (pchar '"') (pchar '"')
+  |> lexeme
   |>> (StringLit >> U)
 
 let expr, exprRef = createParserForwardedToRef ()
 
-let listLit =
-  btwn '[' ']' (sepBy expr comma)
-  |>> (ListLit >> U)
+let listLit = sqBr (sepBy expr comma) |>> (ListLit >> U)
 
 let reserved =
   [ "let"; "end"; "if"; "then"; "else"; "while"; "do"; "for"; "down"; "to"
@@ -84,7 +72,7 @@ let ident =
   let fstChar c = c = '_' || c = '\'' || isLetter c
   let sndChar c = fstChar c || isDigit c
 
-  many1Satisfy2 fstChar sndChar >>= fun s ->
+  lexeme (many1Satisfy2 fstChar sndChar) >>= fun s ->
     if List.contains s reserved then
       fail $"Reserved identifier \"{s}\""
     else
@@ -92,17 +80,21 @@ let ident =
 
 let var = ident |>> (Var >> U)
 
-let fnCallRaw = ident .>> ws .>>. btwn '(' ')' (sepBy expr comma)
-let fnCall = fnCallRaw |>> (FnCall >> U)
+let fnCall = ident .>>. parens (sepBy expr comma)
 
-let parensExpr = btwn '(' ')' expr
-let exprSimple = choice' [boolLit; numLit; stringLit; listLit; fnCall; var; parensExpr] .>> ws
+let exprSimple =
+  choice
+    [ symbol "False" >>% U (BoolLit false)
+      symbol "True" >>% U (BoolLit true)
+      numLit
+      stringLit
+      listLit
+      parens expr
+      attempt fnCall |>> (FnCall >> U)
+      attempt var
+    ]
 
-let withSubscript e =
-  let subscript = btwn '[' ']' expr
-  let unrollSubscript = List.fold <| curry (Subscript >> U)
-
-  unrollSubscript <!> e <*> many subscript
+let withSubscript e = List.fold (curry (Subscript >> U)) <!> e <*> many (sqBr expr)
 
 let ws' = ws >>. notFollowedByL (pchar '-') "minus"
 
@@ -130,34 +122,30 @@ opp.AddOperator(PrefixOperator("length", ws', infixPrec, true, Length >> U))
 
 for prec, (ops, assoc) in List.indexed ops do
   for (opStr, op) in ops do
-    opp.AddOperator(InfixOperator(opStr, ws', prec + 1, assoc, op >.. U))
+    opp.AddOperator(InfixOperator(opStr, ws', prec + 1, assoc, fun a b -> U <| op a b))
 
 exprRef.Value <- opp.ExpressionParser
 
 // Types
 
-let primTy =
-  choice [
-    stringReturn "Bool" Bool
-    stringReturn "Int" Int
-    stringReturn "Float" Float
-    stringReturn "String" String
-  ]
-
 let ty, tyRef = createParserForwardedToRef ()
-
-let listTy = btwn '[' ']' ty |>> List
-tyRef.Value <- choice' [listTy; primTy] .>> ws
+tyRef.Value <-
+  choice [
+    symbol "Bool" >>% Bool
+    symbol "Int" >>% Int
+    symbol "Float" >>% Float
+    symbol "String" >>% String
+  ] <|> (sqBr ty |>> List)
 
 // Stmts
 
-let lvalue = withSubscript (var .>> ws)
+let lvalue = withSubscript (attempt var)
 
 let stmt, stmtRef = createParserForwardedToRef ()
 
 let let' =
   curry4 Let
-  <!> (pstring "let" >>. ws >>. ident .>> ws)
+  <!> (symbol "let" >>. ident)
   <*> opt (colon >>. ty)
   <*> (equals >>. expr)
   <*> (stmtSep >>. stmt)
@@ -166,28 +154,26 @@ let assign = curry Assign <!> (lvalue .>> equals) <*> (expr .>> stmtSep)
 
 let push =
   curry Push
-  <!> (pstring "push" >>. ws >>. lvalue)
+  <!> (symbol "push" >>. lvalue)
   <*> many1 (comma >>. expr) .>> stmtSep
 
-let pop = pstring "pop" >>. ws >>. lvalue .>> stmtSep |>> Pop
+let pop = symbol "pop" >>. lvalue .>> stmtSep |>> Pop
 
-let write = pstring "write" >>. ws >>. sepBy1 expr comma .>> stmtSep |>> Write
+let write = symbol "write" >>. sepBy1 expr comma .>> stmtSep |>> Write
 
-let break' = pstring "break" >>. ws >>. stmtSep >>% Break
-let continue' = pstring "continue" >>. ws >>. stmtSep >>% Continue
+let break' = symbol "break" >>. stmtSep >>% Break
+let continue' = symbol "continue" >>. stmtSep >>% Continue
 
-let return' = pstring "return" >>. ws >>. opt expr .>> stmtSep |>> Return
-let fnCallStmt = fnCallRaw .>> stmtSep |>> FnCallStmt
+let return' = symbol "return" >>. opt expr .>> stmtSep |>> Return
+let fnCallStmt = fnCall .>> stmtSep |>> FnCallStmt
 
-let end' = pstring "end" >>. ws >>. stmtSep
+let end' = symbol "end" >>. stmtSep
 
 let if' =
-  let if' = pstring "if" >>. ws
-  let then' = pstring "then" >>. ws
-  let else' = pstring "else" >>. ws
-
-  let elseIf =
-    (else' >>. if' >>. expr) .>>. (then' >>. stmtSep >>. stmt)
+  let if' = symbol "if"
+  let then' = symbol "then"
+  let else' = symbol "else"
+  let elseIf = (else' >>. if' >>. expr) .>>. (then' >>. stmtSep >>. stmt)
 
   let rec unrollIf c t es e = If (c, t, List.foldBack (uncurry (curry3 If)) es e)
 
@@ -199,37 +185,41 @@ let if' =
 
 let while' =
   curry While
-  <!> (pstring "while" >>. ws >>. expr)
-  <*> (pstring "do" >>. ws >>. stmtSep >>. stmt .>> end')
+  <!> (symbol "while" >>. expr)
+  <*> (symbol "do" >>. stmtSep >>. stmt .>> end')
 
 let doWhile =
   curry DoWhile
-  <!> (pstring "do" >>. ws >>. stmtSep >>. stmt)
-  <*> (pstring "while" >>. ws >>. expr .>> stmtSep)
+  <!> (symbol "do" >>. stmtSep >>. stmt)
+  <*> (symbol "while" >>. expr .>> stmtSep)
 
 let for' =
   curry5 For
-  <!> (pstring "for" >>. ws >>. ident .>> ws)
+  <!> (symbol "for" >>. ident)
   <*> (equals >>. expr)
-  <*> ((pstring "down" >>. ws >>% true) <|>% false)
-  <*> (pstring "to" >>. ws >>. expr)
-  <*> (pstring "do" >>. ws >>. stmtSep >>. stmt .>> end')
+  <*> ((symbol "down" >>% true) <|>% false)
+  <*> (symbol "to" >>. expr)
+  <*> (symbol "do" >>. stmtSep >>. stmt .>> end')
 
 let stmtSimple =
-  choice' [let'; doWhile; for'; while'; if'; write; push; pop; assign; break'; continue'; return'; fnCallStmt]
+  choice
+    [ let'; attempt while'; doWhile; for'; if'; write
+      push; pop; break'; continue'; return'
+      attempt assign; attempt fnCallStmt
+    ]
 
-stmtRef.Value <- many stmtSimple |>> foldr (curry Seq) Nop
+stmtRef.Value <-
+  many stmtSimple
+  |>> fun ss -> List.foldBack (curry Seq) ss Nop
 
 let fnSig =
   let mkFnSig n a r = { name = n; args = a; retTy = r }
-  let arg = ident .>> ws .>> colon .>>. ty
-  let args = btwn '(' ')' <| sepBy arg comma
+  let arg = ident .>> colon .>>. ty
+  let args = parens (sepBy arg comma)
   let ret = opt (colon >>. ty)
 
-  choice' [
-    pstring "program" >>. ws >>% mkFnSig "program" [] None
-    pstring "function" >>. ws >>. (mkFnSig <!> ident <*> args <*> ret)
-  ]
+  (symbol "program" >>% mkFnSig "program" [] None)
+  <|> (symbol "function" >>. (mkFnSig <!> ident <*> args <*> ret))
 
 let function' = fnSig .>> stmtSep .>>. stmt .>> end'
 
@@ -239,7 +229,7 @@ let mkProgram fns =
   let duplicates = duplicatesBy (fun ({ name = n }, _) -> n) fns
 
   match duplicates with
-  | name :: _ -> Result.Error $"Duplicate definition for function \"{name}\""
+  | name :: _ -> Result.Error $"Duplicate definition of function \"{name}\""
   | [] -> Result.Ok { fns = Map.ofList <| List.map (fun ({ name = name }, _ as fn) -> name, fn) fns }
 
 let parse (name, code) =

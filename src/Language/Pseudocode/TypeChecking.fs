@@ -1,6 +1,6 @@
 module Language.Pseudocode.TypeChecking
 
-open Utils.Misc
+open Utils
 open Control.Monad.TC
 open Language.Pseudocode.Syntax
 
@@ -243,7 +243,7 @@ let rec typeCheckStmt stmt =
 let checkDuplicateArgs args =
   match duplicatesBy fst args with
   | [] -> pure' ()
-  | arg :: _ -> err $"Duplicate definition for argument \"{arg}\""
+  | arg :: _ -> err $"Duplicate definition of argument \"{arg}\""
 
 let rec alwaysReturns = function
   | Return _ -> true

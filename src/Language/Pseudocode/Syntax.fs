@@ -1,6 +1,6 @@
 module Language.Pseudocode.Syntax
 
-open Utils.Misc
+open Utils
 open Control.Monad.TC
 
 type Id = string
@@ -86,6 +86,8 @@ type FnSig =
 type Program<'b> =
   { fns: Map<Id, FnSig * 'b>
   }
+
+let mapVals f = Map.map (const' f)
 
 let mapFns f { fns = fns } =
   { fns = mapVals (fun (fnSig, body) -> fnSig, f fnSig body) fns }
